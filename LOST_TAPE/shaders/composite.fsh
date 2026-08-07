@@ -196,13 +196,15 @@ void main() {
                 grad += (lU - lD) / max(length(dUD), 0.05) * normalize(dUD);
             float gmag = length(grad);
 
-            if (gmag > 0.01) {
-                vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
-                // leicht von der Flaeche abheben — Fackeln sitzen meist oberhalb
-                vec3 ldir = normalize(normalize(grad) + nrm * 1.0);
+            vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
+            // Nur Boeden beschatten: auf Waenden/Decken erzeugt der
+            // Screen-Space-March unvermeidbar Streifen-/Ring-Artefakte
+            vec3 worldN = normalize(mat3(gbufferModelViewInverse) * nrm);
+            float floorW = smoothstep(0.55, 0.80, worldN.y);
 
-                // Tiefentoleranz waechst mit Distanz und flachem Blickwinkel,
-                // sonst beschattet sich eine flache Wand beim March selbst (Streifen)
+            if (gmag > 0.015 && floorW > 0.01) {
+                // leicht vom Boden abheben — Fackeln sitzen oberhalb
+                vec3 ldir = normalize(normalize(grad) + nrm * 1.0);
                 float NdotV = clamp(dot(nrm, -normalize(viewPos)), 0.05, 1.0);
 
                 float occ = 0.0;
@@ -218,7 +220,7 @@ void main() {
                     if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0; break; }
                 }
 
-                float shadeAmt = BL_SHADOW_STRENGTH * occ;
+                float shadeAmt = BL_SHADOW_STRENGTH * occ * floorW;
                 shadeAmt *= smoothstep(0.15, 0.5, torchC);
                 shadeAmt *= clamp(gmag * 12.0, 0.0, 1.0);
                 shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
