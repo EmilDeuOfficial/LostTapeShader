@@ -13,6 +13,8 @@
 #define SHADOW_BIAS 1.00 // [0.50 0.75 1.00 1.50 2.00 3.00]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
+#define BL_SHADOWS // gerichtete Schatten von Fackeln & anderen Lichtbloecken
+#define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
 #define VL_SAMPLES 16 // [8 12 16 24 32]
@@ -34,6 +36,8 @@ uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform vec3 shadowLightPosition;
 uniform vec3 fogColor;
+uniform float viewWidth;
+uniform float viewHeight;
 uniform float rainStrength;
 uniform float frameTimeCounter;
 uniform float blindness;
@@ -63,6 +67,14 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
     float bias = (0.0012 * f * f + 0.0003) * biasMul;
     // shadowtex1 = Schattenkarte ohne Glas/Wasser -> Transluzentes wirft keinen Vollschatten
     return step(p.z - bias, texture2D(shadowtex1, p.xy).x);
+}
+
+// View-Position an beliebiger Bildschirmposition rekonstruieren
+vec3 viewPosAt(vec2 uv) {
+    float d = texture2D(depthtex1, uv).x;
+    vec4 ndc = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+    vec4 v = gbufferProjectionInverse * ndc;
+    return v.xyz / v.w;
 }
 
 void main() {
@@ -154,6 +166,60 @@ void main() {
         float aoStr = SSAO_STRENGTH * (0.6 + 0.6 * smoothstep(0.2, 0.8, torchAO));
         float distFade = 1.0 - smoothstep(32.0, 48.0, dist);
         color.rgb *= 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
+    }
+#endif
+
+    // ============ Gerichtete Fackel-Schatten ============
+    // Lichtrichtung aus dem Blocklicht-Gradienten schaetzen (Licht faellt pro
+    // Block ab -> Gradient zeigt zur Quelle), dann Screen-Space-March zur
+    // Quelle: steht Geometrie im Weg, faellt ein Schatten von der Fackel weg.
+#ifdef BL_SHADOWS
+    if (depth < 1.0 && dist < 32.0) {
+        float torchC = texture2D(colortex1, texcoord).x;
+        if (torchC > 0.15) {
+            vec2 px = vec2(4.0 / viewWidth, 4.0 / viewHeight);
+            vec3 pR = viewPosAt(texcoord + vec2(px.x, 0.0));
+            vec3 pL = viewPosAt(texcoord - vec2(px.x, 0.0));
+            vec3 pU = viewPosAt(texcoord + vec2(0.0, px.y));
+            vec3 pD = viewPosAt(texcoord - vec2(0.0, px.y));
+            float lR = texture2D(colortex1, texcoord + vec2(px.x, 0.0)).x;
+            float lL = texture2D(colortex1, texcoord - vec2(px.x, 0.0)).x;
+            float lU = texture2D(colortex1, texcoord + vec2(0.0, px.y)).x;
+            float lD = texture2D(colortex1, texcoord - vec2(0.0, px.y)).x;
+
+            vec3 grad = vec3(0.0);
+            vec3 dRL = pR - pL;
+            vec3 dUD = pU - pD;
+            if (length(dRL) > 0.001 && length(dRL) < 4.0)
+                grad += (lR - lL) / max(length(dRL), 0.05) * normalize(dRL);
+            if (length(dUD) > 0.001 && length(dUD) < 4.0)
+                grad += (lU - lD) / max(length(dUD), 0.05) * normalize(dUD);
+            float gmag = length(grad);
+
+            if (gmag > 0.01) {
+                vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
+                // leicht von der Flaeche abheben — Fackeln sitzen meist oberhalb
+                vec3 ldir = normalize(normalize(grad) + nrm * 0.8);
+
+                float occ = 0.0;
+                float j = bayer8(gl_FragCoord.xy + 37.0);
+                for (int i = 1; i <= 8; i++) {
+                    vec3 sp = viewPos + ldir * ((float(i) - j) / 8.0 * 2.5);
+                    vec4 spc = gbufferProjection * vec4(sp, 1.0);
+                    if (spc.w <= 0.0) break;
+                    vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
+                    if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
+                    float diffZ = (-sp.z) - (-viewPosAt(suv).z);
+                    if (diffZ > 0.06 && diffZ < 1.0) { occ = 1.0; break; }
+                }
+
+                float shadeAmt = BL_SHADOW_STRENGTH * occ;
+                shadeAmt *= smoothstep(0.15, 0.5, torchC);
+                shadeAmt *= clamp(gmag * 12.0, 0.0, 1.0);
+                shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
+                color.rgb *= 1.0 - shadeAmt * 0.6;
+            }
+        }
     }
 #endif
 
