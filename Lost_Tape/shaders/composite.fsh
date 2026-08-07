@@ -11,6 +11,7 @@
 #define SHADOW_STRENGTH 0.60 // [0.20 0.30 0.40 0.50 0.60 0.70 0.80 0.90 1.00]
 #define SHADOW_SOFT 1 // [0 1 2]
 #define SHADOW_BIAS 1.00 // [0.50 0.75 1.00 1.50 2.00 3.00]
+#define SHADOW_FADE_DIST 24.0 // [8.0 12.0 16.0 24.0 32.0 48.0 64.0]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define BL_SHADOWS // Fackel-Schatten: Objekte werfen Schatten auf Boeden darunter
@@ -67,7 +68,11 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
     float bias = (0.0012 * f * f + 0.0003) * biasMul;
     // shadowtex1 = Schattenkarte ohne Glas/Wasser -> Transluzentes wirft keinen Vollschatten
-    return step(p.z - bias, texture2D(shadowtex1, p.xy).x);
+    float diff = (p.z - bias) - texture2D(shadowtex1, p.xy).x;
+    if (diff <= 0.0) return 1.0;
+    // je weiter weg der Verursacher, desto mehr verblasst der Schatten
+    float blocks = diff / max(0.5 * abs(shadowProjection[2][2]), 0.0001);
+    return clamp(blocks / SHADOW_FADE_DIST, 0.0, 1.0);
 }
 
 // View-Position an beliebiger Bildschirmposition rekonstruieren
@@ -189,14 +194,16 @@ void main() {
                 float occ = 0.0;
                 float j = bayer8(gl_FragCoord.xy + 37.0);
                 for (int i = 1; i <= 8; i++) {
-                    vec3 sp = viewPos + upV * ((float(i) - j) / 8.0 * 1.5 + 0.1);
+                    float h = (float(i) - j) / 8.0 * 1.5 + 0.1;
+                    vec3 sp = viewPos + upV * h;
                     vec4 spc = gbufferProjection * vec4(sp, 1.0);
                     if (spc.w <= 0.0) break;
                     vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
                     if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                     float diffZ = (-sp.z) - (-viewPosAt(suv).z);
                     float eps = 0.06 + 0.03 * (-sp.z);
-                    if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0; break; }
+                    // je hoeher das Objekt ueber dem Boden, desto blasser der Schatten
+                    if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0 - h / 1.6; break; }
                 }
 
                 float shadeAmt = BL_SHADOW_STRENGTH * occ * floorW;

@@ -36,6 +36,7 @@ value.SHADOW_SOFT.0=Hart
 value.SHADOW_SOFT.1=Weich
 value.SHADOW_SOFT.2=Sehr weich
 option.SHADOW_BIAS=Schatten-Bias (Anti-Flackern)
+option.SHADOW_FADE_DIST=Schatten-Verblassdistanz
 option.shadowMapResolution=Schattenauflösung
 option.shadowDistance=Schattendistanz
 option.sunPathRotation=Sonnenbahn-Neigung

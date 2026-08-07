@@ -36,6 +36,7 @@ value.SHADOW_SOFT.0=Hard
 value.SHADOW_SOFT.1=Soft
 value.SHADOW_SOFT.2=Very Soft
 option.SHADOW_BIAS=Shadow Bias (Anti-Flicker)
+option.SHADOW_FADE_DIST=Shadow Fade Distance
 option.shadowMapResolution=Shadow Resolution
 option.shadowDistance=Shadow Distance
 option.sunPathRotation=Sun Path Tilt
