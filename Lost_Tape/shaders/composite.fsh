@@ -331,8 +331,8 @@ void main() {
         fog = 1.0 - exp(-fogDist * density);
         // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel,
         // egal wie hoch die Renderdistanz eingestellt ist —
-        // mit langem, weichem Uebergang ab 45% der Distanz
-        fog = max(fog, smoothstep(FOG_LIMIT * 0.45, FOG_LIMIT, dist));
+        // mit sehr langem, weichem Uebergang ab 20% der Distanz
+        fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
     color.rgb = mix(color.rgb, fogC, fog);
