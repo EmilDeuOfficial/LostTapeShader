@@ -199,7 +199,11 @@ void main() {
             if (gmag > 0.01) {
                 vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
                 // leicht von der Flaeche abheben — Fackeln sitzen meist oberhalb
-                vec3 ldir = normalize(normalize(grad) + nrm * 0.8);
+                vec3 ldir = normalize(normalize(grad) + nrm * 1.0);
+
+                // Tiefentoleranz waechst mit Distanz und flachem Blickwinkel,
+                // sonst beschattet sich eine flache Wand beim March selbst (Streifen)
+                float NdotV = clamp(dot(nrm, -normalize(viewPos)), 0.05, 1.0);
 
                 float occ = 0.0;
                 float j = bayer8(gl_FragCoord.xy + 37.0);
@@ -210,7 +214,8 @@ void main() {
                     vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
                     if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                     float diffZ = (-sp.z) - (-viewPosAt(suv).z);
-                    if (diffZ > 0.06 && diffZ < 1.0) { occ = 1.0; break; }
+                    float eps = (0.05 + 0.03 * (-sp.z)) / NdotV;
+                    if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0; break; }
                 }
 
                 float shadeAmt = BL_SHADOW_STRENGTH * occ;
