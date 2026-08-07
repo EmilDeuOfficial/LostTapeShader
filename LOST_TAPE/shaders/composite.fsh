@@ -13,7 +13,7 @@
 #define SHADOW_BIAS 1.00 // [0.50 0.75 1.00 1.50 2.00 3.00]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
-#define BL_SHADOWS // gerichtete Schatten von Fackeln & anderen Lichtbloecken
+//#define BL_SHADOWS // EXPERIMENTELL: gerichtete Fackel-Schatten — erzeugt Streifen-Artefakte (16 Lichtstufen)
 #define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
