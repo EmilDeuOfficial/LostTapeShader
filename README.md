@@ -59,12 +59,12 @@ All options are adjustable in-game under **Shader Pack Settings**, grouped into 
 
 | | |
 |---|---|
-| Minecraft | **1.16.5 – 1.21.x** |
+| Minecraft | **1.16.5 – 26.x** |
 | Shader loader | **[Iris](https://modrinth.com/mod/iris)** (Fabric/Quilt/NeoForge) or **[Oculus](https://modrinth.com/mod/oculus)** (Forge) |
 | OptiFine | Not required (untested) |
 | GPU | Anything with OpenGL 2.1+ — no PBR, no heavy passes |
 
-> Install: drop `LOST_TAPE_v1.2.zip` into `.minecraft/shaderpacks/` and select it in **Options → Video Settings → Shader Packs**.
+> Install: drop `Lost_Tape_v#.#.zip` into `.minecraft/shaderpacks/` and select it in **Options → Video Settings → Shader Packs**.
 
 ---
 
