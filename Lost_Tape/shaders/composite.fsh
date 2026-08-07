@@ -175,11 +175,11 @@ void main() {
     }
 #endif
 
-    // ============ Fackel-Schatten (vertikal) ============
-    // Fackellicht kommt effektiv "von oben": von jeder fackelbeleuchteten
-    // Bodenflaeche wird senkrecht nach oben getestet — steht dort Geometrie
-    // (Tisch, Ueberhang, Blaetter), faellt darunter Schatten. Die Richtung
-    // ist konstant, daher keine Streifen-Artefakte wie beim Gradienten-Ansatz.
+    // ============ Fackel-Schatten (Strahlenbuendel) ============
+    // Von jeder fackelbeleuchteten Bodenflaeche werden 5 Strahlen getestet:
+    // senkrecht nach oben + 4x um 45 Grad seitlich geneigt (N/O/S/W).
+    // Objekte ueber UND neben der Flaeche werfen so Schatten. Alle
+    // Richtungen sind konstant -> keine Streifen wie beim Gradienten-Ansatz.
 #ifdef BL_SHADOWS
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
@@ -190,21 +190,38 @@ void main() {
 
             if (floorW > 0.01) {
                 vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
+                vec3 eastV = mat3(gbufferModelView) * vec3(1.0, 0.0, 0.0);
+                vec3 southV = mat3(gbufferModelView) * vec3(0.0, 0.0, 1.0);
 
                 float occ = 0.0;
                 float j = bayer8(gl_FragCoord.xy + 37.0);
-                for (int i = 1; i <= 8; i++) {
-                    float h = (float(i) - j) / 8.0 * 1.5 + 0.1;
-                    vec3 sp = viewPos + upV * h;
-                    vec4 spc = gbufferProjection * vec4(sp, 1.0);
-                    if (spc.w <= 0.0) break;
-                    vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
-                    if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
-                    float diffZ = (-sp.z) - (-viewPosAt(suv).z);
-                    float eps = 0.06 + 0.03 * (-sp.z);
-                    // je hoeher das Objekt ueber dem Boden, desto blasser der Schatten
-                    if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0 - h / 1.6; break; }
+
+                for (int r = 0; r < 5; r++) {
+                    vec3 rdir = upV;
+                    if (r == 1) rdir = normalize(upV + eastV);
+                    else if (r == 2) rdir = normalize(upV - eastV);
+                    else if (r == 3) rdir = normalize(upV + southV);
+                    else if (r == 4) rdir = normalize(upV - southV);
+
+                    float jr = fract(j + float(r) * 0.618034);
+                    for (int i = 1; i <= 5; i++) {
+                        float h = (float(i) - jr) / 5.0 * 1.5 + 0.1;
+                        vec3 sp = viewPos + rdir * h;
+                        vec4 spc = gbufferProjection * vec4(sp, 1.0);
+                        if (spc.w <= 0.0) break;
+                        vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
+                        if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
+                        float diffZ = (-sp.z) - (-viewPosAt(suv).z);
+                        float eps = 0.06 + 0.03 * (-sp.z);
+                        // je weiter weg das Objekt, desto blasser der Schatten
+                        if (diffZ > eps && diffZ < eps + 1.2) {
+                            occ += 1.0 - h / 1.6;
+                            break;
+                        }
+                    }
                 }
+                // 5 Strahlen, aber schon ~3 Treffer ergeben vollen Schatten
+                occ = clamp(occ / 3.0, 0.0, 1.0);
 
                 float shadeAmt = BL_SHADOW_STRENGTH * occ * floorW;
                 shadeAmt *= smoothstep(0.15, 0.5, torchC);
