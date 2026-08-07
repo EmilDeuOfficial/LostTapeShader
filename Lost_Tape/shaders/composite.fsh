@@ -330,8 +330,9 @@ void main() {
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
         // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel,
-        // egal wie hoch die Renderdistanz eingestellt ist
-        fog = max(fog, smoothstep(FOG_LIMIT * 0.7, FOG_LIMIT, dist));
+        // egal wie hoch die Renderdistanz eingestellt ist —
+        // mit langem, weichem Uebergang ab 45% der Distanz
+        fog = max(fog, smoothstep(FOG_LIMIT * 0.45, FOG_LIMIT, dist));
     }
 
     color.rgb = mix(color.rgb, fogC, fog);

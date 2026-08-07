@@ -52,8 +52,8 @@ void main() {
         float fogDist = dist;
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
-        // Nebelwand: unabhaengig von der Renderdistanz
-        fog = max(fog, smoothstep(FOG_LIMIT * 0.7, FOG_LIMIT, dist));
+        // Nebelwand: unabhaengig von der Renderdistanz, langer Uebergang
+        fog = max(fog, smoothstep(FOG_LIMIT * 0.45, FOG_LIMIT, dist));
     }
 
     color.rgb = mix(color.rgb, fogC, fog);
