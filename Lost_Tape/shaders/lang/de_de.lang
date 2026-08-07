@@ -21,6 +21,7 @@ screen.OVERLAY=Analog-Overlay
 option.FOG_DENSITY=Nebeldichte
 option.FOG_START=Nebel-Startdistanz
 option.SKY_FOG=Himmelsnebel
+option.FOG_LIMIT=Nebelwand-Distanz
 option.FOG_BREATHING=Atmender Nebel
 option.LIGHT_GAMMA=Dunkelheit
 option.NIGHT_BRIGHTNESS=Nachthelligkeit (Mondlicht)

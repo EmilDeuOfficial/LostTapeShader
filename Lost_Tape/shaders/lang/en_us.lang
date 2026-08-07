@@ -21,6 +21,7 @@ screen.OVERLAY=Analog Overlay
 option.FOG_DENSITY=Fog Density
 option.FOG_START=Fog Start Distance
 option.SKY_FOG=Sky Fog
+option.FOG_LIMIT=Fog Wall Distance
 option.FOG_BREATHING=Breathing Fog
 option.LIGHT_GAMMA=Darkness
 option.NIGHT_BRIGHTNESS=Night Brightness (Moonlight)

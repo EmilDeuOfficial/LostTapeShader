@@ -5,6 +5,7 @@
 #define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 #define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
 #define SKY_FOG 0.75 // [0.00 0.20 0.40 0.60 0.75 0.90 1.00]
+#define FOG_LIMIT 128.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
 #define FOG_BREATHING // langsames An- und Abschwellen des Nebels
 
 #define SHADOWS // Sonnen- und Mondschatten
@@ -264,7 +265,8 @@ void main() {
 #endif
 
     if (isEyeInWater == 1) {
-        density = max(density, 0.10);
+        // Unterwasser-Nebel skaliert mit dem Nebeldichte-Regler
+        density = max(density, 0.10 * FOG_DENSITY);
         fogC = vec3(0.03, 0.07, 0.06);
     } else if (isEyeInWater == 2) {
         density = max(density, 0.60);
@@ -317,14 +319,19 @@ void main() {
 
     float fog;
     if (depth >= 1.0) {
-        // Himmel im Dunst versinken lassen
-        fog = clamp(SKY_FOG + rainStrength * 0.25, 0.0, 1.0);
+        // Himmel im Dunst versinken lassen — zum Horizont hin voller Nebel,
+        // damit der Look unabhaengig von der Renderdistanz gleich bleibt
+        float upness = smoothstep(0.0, 0.35, normalize(playerPos).y);
+        fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         if (isEyeInWater == 1) fog = 1.0;
     } else {
         // Nebel beginnt erst ab FOG_START Bloecken (unter Wasser/Lava sofort)
         float fogDist = dist;
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
+        // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel,
+        // egal wie hoch die Renderdistanz eingestellt ist
+        fog = max(fog, smoothstep(FOG_LIMIT * 0.7, FOG_LIMIT, dist));
     }
 
     color.rgb = mix(color.rgb, fogC, fog);
