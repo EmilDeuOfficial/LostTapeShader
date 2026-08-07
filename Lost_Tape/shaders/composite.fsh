@@ -85,6 +85,19 @@ vec3 viewPosAt(vec2 uv) {
     return v.xyz / v.w;
 }
 
+// Robuste Flaechen-Normale: pro Achse die Nachbarseite mit dem kleineren
+// Tiefensprung nehmen — liefert auch an Objektkanten korrekte Normalen
+vec3 normalAt(vec2 uv, vec3 c) {
+    vec2 px = vec2(1.0 / viewWidth, 1.0 / viewHeight);
+    vec3 r = viewPosAt(uv + vec2(px.x, 0.0));
+    vec3 l = viewPosAt(uv - vec2(px.x, 0.0));
+    vec3 u = viewPosAt(uv + vec2(0.0, px.y));
+    vec3 d = viewPosAt(uv - vec2(0.0, px.y));
+    vec3 dx = (abs(r.z - c.z) < abs(c.z - l.z)) ? (r - c) : (c - l);
+    vec3 dy = (abs(u.z - c.z) < abs(c.z - d.z)) ? (u - c) : (c - d);
+    return normalize(cross(dx, dy));
+}
+
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
     // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
@@ -114,22 +127,10 @@ void main() {
         if (depthT < depth - 0.0001 || isEyeInWater == 1) shStr = min(shStr * 1.6, 0.95);
 
         if (shStr > 0.005) {
-            // An Silhouetten-Kanten sind die Depth-Normalen kaputt: dort
-            // neutral testen (mehr Bias, keine Flaechenwertung) statt die
-            // Schatten zu ueberspringen — sonst gibt es helle/dunkle Outlines
-            float edgeJump = length(dFdx(viewPos)) + length(dFdy(viewPos));
-            bool onEdge = edgeJump > 0.25 + dist * 0.06;
-
-            float faceLit = 1.0;
-            float biasMul = SHADOW_BIAS * 2.5;
-            if (!onEdge) {
-                // Flaechen-Normale aus dem Depth-Buffer rekonstruieren:
-                // verhindert, dass sich jeder Block selbst beschattet
-                vec3 normal = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
-                float NdotL = dot(normal, normalize(shadowLightPosition));
-                faceLit = smoothstep(0.0, 0.12, NdotL);
-                biasMul = SHADOW_BIAS * clamp(0.25 / max(NdotL, 0.05), 1.0, 5.0);
-            }
+            vec3 normal = normalAt(texcoord, viewPos);
+            float NdotL = dot(normal, normalize(shadowLightPosition));
+            float faceLit = smoothstep(0.0, 0.12, NdotL);
+            float biasMul = SHADOW_BIAS * clamp(0.25 / max(NdotL, 0.05), 1.0, 5.0);
 
             float sh = 0.0;
             if (faceLit > 0.001) {
