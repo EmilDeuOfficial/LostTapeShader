@@ -29,7 +29,7 @@ void main() {
 
     // Mondlicht: hellt Naechte auf, nur wo Himmel sichtbar ist (Hoehlen bleiben dunkel)
     float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
-    light += vec3(0.05, 0.065, 0.09) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
+    light += vec3(0.035, 0.045, 0.065) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
 
     color.rgb *= light;
 

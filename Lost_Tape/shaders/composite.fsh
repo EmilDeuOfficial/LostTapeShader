@@ -13,7 +13,7 @@
 #define SHADOW_BIAS 1.00 // [0.50 0.75 1.00 1.50 2.00 3.00]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
-//#define BL_SHADOWS // EXPERIMENTELL: gerichtete Fackel-Schatten — erzeugt Streifen-Artefakte (16 Lichtstufen)
+#define BL_SHADOWS // Fackel-Schatten: Objekte werfen Schatten auf Boeden darunter
 #define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
@@ -31,6 +31,7 @@ uniform sampler2D depthtex1;
 uniform sampler2D shadowtex1;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
+uniform mat4 gbufferModelView;
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -169,60 +170,37 @@ void main() {
     }
 #endif
 
-    // ============ Gerichtete Fackel-Schatten ============
-    // Lichtrichtung aus dem Blocklicht-Gradienten schaetzen (Licht faellt pro
-    // Block ab -> Gradient zeigt zur Quelle), dann Screen-Space-March zur
-    // Quelle: steht Geometrie im Weg, faellt ein Schatten von der Fackel weg.
+    // ============ Fackel-Schatten (vertikal) ============
+    // Fackellicht kommt effektiv "von oben": von jeder fackelbeleuchteten
+    // Bodenflaeche wird senkrecht nach oben getestet — steht dort Geometrie
+    // (Tisch, Ueberhang, Blaetter), faellt darunter Schatten. Die Richtung
+    // ist konstant, daher keine Streifen-Artefakte wie beim Gradienten-Ansatz.
 #ifdef BL_SHADOWS
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
         if (torchC > 0.15) {
-            vec2 px = vec2(4.0 / viewWidth, 4.0 / viewHeight);
-            vec3 pR = viewPosAt(texcoord + vec2(px.x, 0.0));
-            vec3 pL = viewPosAt(texcoord - vec2(px.x, 0.0));
-            vec3 pU = viewPosAt(texcoord + vec2(0.0, px.y));
-            vec3 pD = viewPosAt(texcoord - vec2(0.0, px.y));
-            float lR = texture2D(colortex1, texcoord + vec2(px.x, 0.0)).x;
-            float lL = texture2D(colortex1, texcoord - vec2(px.x, 0.0)).x;
-            float lU = texture2D(colortex1, texcoord + vec2(0.0, px.y)).x;
-            float lD = texture2D(colortex1, texcoord - vec2(0.0, px.y)).x;
-
-            vec3 grad = vec3(0.0);
-            vec3 dRL = pR - pL;
-            vec3 dUD = pU - pD;
-            if (length(dRL) > 0.001 && length(dRL) < 4.0)
-                grad += (lR - lL) / max(length(dRL), 0.05) * normalize(dRL);
-            if (length(dUD) > 0.001 && length(dUD) < 4.0)
-                grad += (lU - lD) / max(length(dUD), 0.05) * normalize(dUD);
-            float gmag = length(grad);
-
             vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
-            // Nur Boeden beschatten: auf Waenden/Decken erzeugt der
-            // Screen-Space-March unvermeidbar Streifen-/Ring-Artefakte
             vec3 worldN = normalize(mat3(gbufferModelViewInverse) * nrm);
             float floorW = smoothstep(0.55, 0.80, worldN.y);
 
-            if (gmag > 0.015 && floorW > 0.01) {
-                // leicht vom Boden abheben — Fackeln sitzen oberhalb
-                vec3 ldir = normalize(normalize(grad) + nrm * 1.0);
-                float NdotV = clamp(dot(nrm, -normalize(viewPos)), 0.05, 1.0);
+            if (floorW > 0.01) {
+                vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
 
                 float occ = 0.0;
                 float j = bayer8(gl_FragCoord.xy + 37.0);
                 for (int i = 1; i <= 8; i++) {
-                    vec3 sp = viewPos + ldir * ((float(i) - j) / 8.0 * 2.5);
+                    vec3 sp = viewPos + upV * ((float(i) - j) / 8.0 * 1.5 + 0.1);
                     vec4 spc = gbufferProjection * vec4(sp, 1.0);
                     if (spc.w <= 0.0) break;
                     vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
                     if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                     float diffZ = (-sp.z) - (-viewPosAt(suv).z);
-                    float eps = (0.05 + 0.03 * (-sp.z)) / NdotV;
+                    float eps = 0.06 + 0.03 * (-sp.z);
                     if (diffZ > eps && diffZ < eps + 1.2) { occ = 1.0; break; }
                 }
 
                 float shadeAmt = BL_SHADOW_STRENGTH * occ * floorW;
                 shadeAmt *= smoothstep(0.15, 0.5, torchC);
-                shadeAmt *= clamp(gmag * 12.0, 0.0, 1.0);
                 shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
                 color.rgb *= 1.0 - shadeAmt * 0.6;
             }
