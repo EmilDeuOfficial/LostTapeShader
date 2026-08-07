@@ -29,9 +29,8 @@ void main() {
 
     color.rgb *= light;
 
-    // trübes, unheimliches Wasser
-    color.rgb *= vec3(0.72, 0.84, 0.80);
-    color.a = clamp(color.a * 1.4, 0.0, 0.95);
+    // leicht truebes Wasser — Alpha bleibt vanilla, der Grund bleibt sichtbar
+    color.rgb *= vec3(0.85, 0.93, 0.90);
 
 /* DRAWBUFFERS:0 */
     // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten

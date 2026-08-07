@@ -30,6 +30,7 @@ uniform sampler2D colortex1;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D shadowtex1;
+uniform sampler2D shadowcolor0;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelView;
@@ -70,9 +71,10 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
     // shadowtex1 = Schattenkarte ohne Glas/Wasser -> Transluzentes wirft keinen Vollschatten
     float diff = (p.z - bias) - texture2D(shadowtex1, p.xy).x;
     if (diff <= 0.0) return 1.0;
-    // je weiter weg der Verursacher, desto mehr verblasst der Schatten
+    // Distanz-Verblassen NUR fuer den Spielerschatten (Marker in shadowcolor0.a)
+    float isPlayer = 1.0 - texture2D(shadowcolor0, p.xy).a;
     float blocks = diff / max(0.5 * abs(shadowProjection[2][2]), 0.0001);
-    return clamp(blocks / SHADOW_FADE_DIST, 0.0, 1.0);
+    return clamp(blocks / SHADOW_FADE_DIST, 0.0, 1.0) * isPlayer;
 }
 
 // View-Position an beliebiger Bildschirmposition rekonstruieren
@@ -87,6 +89,8 @@ void main() {
     vec4 color = texture2D(colortex0, texcoord);
     // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
     float depth = texture2D(depthtex1, texcoord).x;
+    // Tiefe MIT Transluzentem: erkennt Flaechen, die unter Wasser/Glas liegen
+    float depthT = texture2D(depthtex0, texcoord).x;
 
     // Abstand zur Kamera aus dem Depth-Buffer rekonstruieren
     vec4 ndc = vec4(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -106,7 +110,14 @@ void main() {
         // Fackellicht schuetzt vor Schatten-Abdunklung
         shStr *= 1.0 - smoothstep(0.35, 0.85, lmData.x);
 
-        if (shStr > 0.005) {
+        // Flaechen unter Wasser: Schatten extra stark
+        if (depthT < depth - 0.0001 || isEyeInWater == 1) shStr = min(shStr * 1.6, 0.95);
+
+        // Silhouetten-Kanten ueberspringen: kaputte Depth-Normalen erzeugen
+        // dort sonst eine dunkle Outline um Spieler & Objekte
+        float edgeJump = length(dFdx(viewPos)) + length(dFdy(viewPos));
+
+        if (shStr > 0.005 && edgeJump < 0.25 + dist * 0.06) {
             // Flaechen-Normale aus dem Depth-Buffer rekonstruieren:
             // verhindert, dass sich jeder Block selbst beschattet (Acne/Flackern)
             vec3 normal = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
