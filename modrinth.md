@@ -3,6 +3,8 @@
 
 ## 📼 LOST TAPE
 
+![Logo](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/logo.png)
+
 A nostalgic analog-horror shaderpack for **Iris** and **Oculus**. Dense breathing fog swallows the horizon, real shadow-mapped shadows crawl across the terrain, and volumetric light shafts cut through the haze — all wrapped in VHS grain, dithering, and PSX-era vertex wobble.
 
 No heavy PBR pipeline, no bloat. Built on the classic fixed-function shader pipeline (GLSL 120), it runs fast even on weak GPUs while nailing the *Somber*-style found-footage dread.
@@ -21,6 +23,15 @@ No heavy PBR pipeline, no bloat. Built on the classic fixed-function shader pipe
 - **Analog overlay** — film grain, vignette, chromatic aberration, scanlines, analog flicker, VHS wobble
 - **Sun & moon toggles** — remove them from the sky entirely while the light shafts keep falling (ARG nightmare fuel)
 - **13 hand-tuned presets** — every preset sets *all* options for a consistent one-click look
+
+---
+
+### 📸 Screenshots
+
+| | |
+|---|---|
+| ![Screenshot 1](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/2026-08-07_17.11.36.jpg) | ![Screenshot 2](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/2026-08-07_17.13.15.jpg) |
+| ![Screenshot 3](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/2026-08-07_17.13.56.jpg) | ![Screenshot 4](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/2026-08-07_17.14.42.jpg) |
 
 ---
 
@@ -62,12 +73,12 @@ All options are adjustable in-game under **Shader Pack Settings**, grouped into 
 
 | | |
 |---|---|
-| Minecraft | **1.16.5 – 1.21.x** |
+| Minecraft | **1.16.5 – 26.x** |
 | Shader loader | **[Iris](https://modrinth.com/mod/iris)** (Fabric/Quilt/NeoForge) or **[Oculus](https://modrinth.com/mod/oculus)** (Forge) |
 | OptiFine | Not required (untested) |
 | GPU | Anything with OpenGL 2.1+ — no PBR, no heavy passes |
 
-> Install: drop `LOST_TAPE_v1.2.zip` into `.minecraft/shaderpacks/` and select it in **Options → Video Settings → Shader Packs**.
+> Install: drop `Lost_Tape_v#.#.zip` into `.minecraft/shaderpacks/` and select it in **Options → Video Settings → Shader Packs**.
 
 ---
 
