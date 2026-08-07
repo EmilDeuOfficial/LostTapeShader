@@ -3,8 +3,6 @@
 
 ## 📼 LOST TAPE
 
-![Logo](https://raw.githubusercontent.com/EmilDeuOfficial/LostTapeShader/main/img/logo.png)
-
 A nostalgic analog-horror shaderpack for **Iris** and **Oculus**. Dense breathing fog swallows the horizon, real shadow-mapped shadows crawl across the terrain, and volumetric light shafts cut through the haze — all wrapped in VHS grain, dithering, and PSX-era vertex wobble.
 
 No heavy PBR pipeline, no bloat. Built on the classic fixed-function shader pipeline (GLSL 120), it runs fast even on weak GPUs while nailing the *Somber*-style found-footage dread.
