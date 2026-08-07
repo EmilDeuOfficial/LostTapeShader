@@ -1,7 +1,7 @@
 <!-- MODRINTH SUMMARY (paste into Project Settings → Summary, max 256 chars) -->
 <!-- Nostalgic analog-horror shader for Iris & Oculus: dense breathing fog, real shadows, god rays, PSX vertex wobble, VHS grain and 13 presets — from subtle dread to full found-footage horror. -->
 
-## 📼 LOST TAPE
+## 📼 Lost Tape Shader
 
 A nostalgic analog-horror shaderpack for **Iris** and **Oculus**. Dense breathing fog swallows the horizon, real shadow-mapped shadows crawl across the terrain, and volumetric light shafts cut through the haze — all wrapped in VHS grain, dithering, and PSX-era vertex wobble.
 
@@ -82,4 +82,4 @@ All options are adjustable in-game under **Shader Pack Settings**, grouped into 
 
 ### 🔧 How it works
 
-LOST TAPE uses the classic OptiFine-format pipeline (GLSL 120) that Iris and Oculus fully support. The gbuffers programs apply lightmap shaping (gamma darkness with a separately-sampled block-light exemption) and optional PSX vertex snapping in clip space. A single `composite` pass reconstructs view positions from the depth buffer (`depthtex1`, so glass and water don't block shadows or fog), derives screen-space normals via `dFdx`/`dFdy` for acne-free slope-scaled shadow biasing, samples a distortion-warped shadow map, ray-marches the shadow map for volumetric light with Bayer-ordered dithering, applies SSAO, and blends the breathing fog. The `final` pass does the analog grade: black lift, contrast, desaturation, tint, ordered-dither color quantization, grain, scanlines, flicker, vignette, and chromatic aberration. Dimension folders give the Nether and End their own fog-only composites.
+Lost Tape Shader uses the classic OptiFine-format pipeline (GLSL 120) that Iris and Oculus fully support. The gbuffers programs apply lightmap shaping (gamma darkness with a separately-sampled block-light exemption) and optional PSX vertex snapping in clip space. A single `composite` pass reconstructs view positions from the depth buffer (`depthtex1`, so glass and water don't block shadows or fog), derives screen-space normals via `dFdx`/`dFdy` for acne-free slope-scaled shadow biasing, samples a distortion-warped shadow map, ray-marches the shadow map for volumetric light with Bayer-ordered dithering, applies SSAO, and blends the breathing fog. The `final` pass does the analog grade: black lift, contrast, desaturation, tint, ordered-dither color quantization, grain, scanlines, flicker, vignette, and chromatic aberration. Dimension folders give the Nether and End their own fog-only composites.
