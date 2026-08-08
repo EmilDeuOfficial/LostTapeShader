@@ -11,6 +11,8 @@ uniform sampler2D lightmap;
 uniform float sunAngle;
 uniform int heldBlockLightValue;
 uniform int heldBlockLightValue2;
+uniform int heldItemId;
+uniform int heldItemId2;
 
 varying vec2 texcoord;
 varying vec2 lmcoord;
@@ -36,8 +38,20 @@ void main() {
     // dynamisches Licht: gehaltene Fackeln & Co. beleuchten die Umgebung
     float handLv = float(max(heldBlockLightValue, heldBlockLightValue2));
     if (handLv > 0.5) {
+        int hid = heldItemId;
+        if (heldBlockLightValue2 > heldBlockLightValue) hid = heldItemId2;
+        // Lichtfarbe passend zum gehaltenen Block (item.properties)
+        vec3 handCol = vec3(1.00, 0.72, 0.45);                // Standard: warm
+        if (hid == 11) handCol = vec3(0.35, 0.85, 1.00);      // Soul: tuerkis
+        else if (hid == 12) handCol = vec3(0.60, 0.92, 0.95); // Seelaterne: kalt
+        else if (hid == 13) handCol = vec3(1.00, 0.25, 0.15); // Redstone: rot
+        else if (hid == 14) handCol = vec3(0.75, 0.45, 1.00); // Amethyst: violett
+        else if (hid == 15) handCol = vec3(0.95, 0.95, 1.00); // End Rod: weiss
         float att = clamp(1.0 - viewDist / (handLv * 0.8), 0.0, 1.0);
-        light += vec3(1.0, 0.72, 0.45) * (att * att * HAND_LIGHT_STRENGTH);
+        // Staerke skaliert mit dem Lichtlevel des Blocks
+        light += handCol * (att * att * HAND_LIGHT_STRENGTH * (0.5 + handLv / 30.0));
+        // der leuchtende Block in der Hand glueht selbst
+        light = max(light, handCol * (0.45 + handLv / 25.0));
     }
 #endif
 
