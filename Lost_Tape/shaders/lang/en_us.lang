@@ -28,6 +28,7 @@ option.NIGHT_BRIGHTNESS=Night Brightness (Moonlight)
 option.BLOCKLIGHT_BOOST=Torch Brightness
 option.HAND_LIGHT=Held Item Light (Dynamic)
 option.HAND_LIGHT_STRENGTH=Held Light Strength
+option.WATER_OPACITY=Water Opacity
 option.SKY_GLOOM=Sky Gloom
 option.CELESTIAL_DIM=Sun & Moon Brightness
 option.SHOW_SUN=Show Sun

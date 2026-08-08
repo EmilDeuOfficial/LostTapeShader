@@ -28,6 +28,7 @@ option.NIGHT_BRIGHTNESS=Nachthelligkeit (Mondlicht)
 option.BLOCKLIGHT_BOOST=Fackel-Helligkeit
 option.HAND_LIGHT=Hand-Licht (Dynamisch)
 option.HAND_LIGHT_STRENGTH=Hand-Licht-Stärke
+option.WATER_OPACITY=Wasser-Deckkraft
 option.SKY_GLOOM=Düsterer Himmel
 option.CELESTIAL_DIM=Sonnen- & Mondhelligkeit
 option.SHOW_SUN=Sonne anzeigen

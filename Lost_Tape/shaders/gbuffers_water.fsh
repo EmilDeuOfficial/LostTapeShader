@@ -5,6 +5,7 @@
 #define BLOCKLIGHT_BOOST 1.25 // [0.50 0.75 1.00 1.25 1.50 1.75 2.00]
 #define HAND_LIGHT // dynamisches Licht von Fackeln & Co. in der Hand
 #define HAND_LIGHT_STRENGTH 1.00 // [0.50 0.75 1.00 1.25 1.50 2.00]
+#define WATER_OPACITY 0.60 // [0.30 0.40 0.50 0.60 0.75 0.90 1.00]
 
 uniform sampler2D texture;
 uniform sampler2D lightmap;
@@ -55,8 +56,10 @@ void main() {
 
     color.rgb *= light;
 
-    // leicht truebes Wasser — Alpha bleibt vanilla, der Grund bleibt sichtbar
-    color.rgb *= vec3(0.85, 0.93, 0.90);
+    // Wasser durchsichtiger machen: die Blockfarben am Grund kommen durch,
+    // statt von der blauen Wasserflaeche ueberdeckt zu werden
+    color.rgb *= vec3(0.92, 0.97, 0.95);
+    color.a *= WATER_OPACITY;
 
 /* DRAWBUFFERS:0 */
     // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten
