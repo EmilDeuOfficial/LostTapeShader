@@ -70,16 +70,10 @@ void main() {
         color.a = min(color.a * 2.2, 0.97);
         color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
     } else {
-        // Fallback OHNE Block-ID: violette Pixel WEICH erkennen — auch die
-        // blassen Lavendel-Texel der Portal-Textur (b und r ueber g)
-        float purple = clamp((color.b - color.g) * 6.0, 0.0, 1.0)
-                     * clamp((color.r - color.g) * 8.0 + 0.3, 0.0, 1.0)
-                     * step(0.10, color.b);
-        color.a = min(color.a * (1.0 + 1.4 * purple), 0.97);
-        // Saettigung vorverstaerken: stark fuer Portal-Purpur, leicht fuer
-        // alles andere gefaerbte Glas (uebersteht so das Analog-Grading)
-        float satBoost = mix(1.25, 1.45, purple);
-        color.rgb = clamp(mix(vec3(tLum), color.rgb, satBoost), 0.0, 1.0);
+        // gefaerbtes Glas & Co.: Deckkraft bleibt VANILLA, damit die
+        // Blockfarben und Texturen dahinter erkennbar bleiben — nur ein
+        // Hauch Saettigungs-Ausgleich gegen das entsaettigende Grading
+        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.12), 0.0, 1.0);
     }
 
 /* DRAWBUFFERS:0 */
