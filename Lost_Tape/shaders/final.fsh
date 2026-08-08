@@ -20,7 +20,7 @@
 #define FLICKER // subtiles analoges Helligkeitsflackern
 //#define VHS_WOBBLE
 
-uniform sampler2D colortex0;
+uniform sampler2D colortex2;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float frameTimeCounter;
@@ -53,9 +53,9 @@ void main() {
     vec2 ca = off * dot(off, off) * CHROMATIC_ABERRATION * 0.03;
 
     vec3 col;
-    col.r = texture2D(colortex0, uv - ca).r;
-    col.g = texture2D(colortex0, uv).g;
-    col.b = texture2D(colortex0, uv + ca).b;
+    col.r = texture2D(colortex2, uv - ca).r;
+    col.g = texture2D(colortex2, uv).g;
+    col.b = texture2D(colortex2, uv + ca).b;
 
     // ausgeblichene Schwarztoene (VHS-Look)
     col = vec3(BLACK_LIFT) * vec3(0.80, 0.95, 0.85) + col * (1.0 - BLACK_LIFT);

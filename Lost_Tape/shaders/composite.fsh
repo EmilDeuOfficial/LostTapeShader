@@ -17,6 +17,8 @@
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define BL_SHADOWS // Blocklicht-Schatten: Objekte beschatten fackelbeleuchtete Flaechen
 #define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
+#define COLORED_BLOCKLIGHT // Blocklicht uebernimmt die Farbe der Quelle (Seelaterne tuerkis usw.)
+#define COLORED_BL_STRENGTH 0.60 // [0.30 0.45 0.60 0.80 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
 #define VL_SAMPLES 16 // [8 12 16 24 32]
@@ -196,47 +198,83 @@ void main() {
     }
 #endif
 
-    // ============ Blocklicht-Schatten (Lichtquellen-Suche) ============
-    // Der hellste Blocklicht-Punkt der Umgebung wird per Spiral-Suche als
-    // Lichtposition geschaetzt; von jeder Flaeche wird Richtung Quelle
-    // gemarcht. Objekte und Entities dazwischen werfen harte, GERICHTETE
-    // Schatten von der Quelle weg — und der hellste Punkt (die Lichtquelle
-    // selbst) bekommt nie einen Schatten.
-#ifdef BL_SHADOWS
+    // ============ Blocklicht: farbiges Licht & gerichtete Schatten ============
+    // Spiral-Suche findet die Lichtquelle: der hellste Punkt liefert die
+    // FARBE der Quelle (COLORED_BLOCKLIGHT), der lightmap-gewichtete
+    // SCHWERPUNKT ihre Position. Der Schwerpunkt ist raeumlich glatt und
+    // liegt bei einer Laterne in ihrer Mitte — alle Schatten einer Quelle
+    // zeigen dadurch in DIESELBE Richtung statt in alle.
+#if defined(BL_SHADOWS) || defined(COLORED_BLOCKLIGHT)
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
         if (torchC > 0.15) {
             float aspect = viewWidth / viewHeight;
-            float searchR = clamp(3.0 * gbufferProjection[1][1] / max(dist, 1.0), 0.03, 0.40);
+            float searchR = clamp(2.5 * gbufferProjection[1][1] / max(dist, 1.0), 0.03, 0.40);
             float bestLm = torchC;
             vec2 bestUV = texcoord;
+            vec3 bestPos = viewPos;
+            vec3 sPos[16];
+            float sW[16];
             for (int i = 0; i < 16; i++) {
+                sW[i] = 0.0;
+                sPos[i] = viewPos;
                 float a = float(i) * 2.399963;
                 float rr = searchR * (0.15 + 0.85 * float(i) / 15.0);
-                vec2 suv = texcoord + vec2(cos(a), sin(a) * aspect) * rr;
+                // x durch aspect teilen: Suchkreis ist in Pixeln rund und der
+                // Radius damit unabhaengig vom Seitenverhaeltnis des Fensters
+                vec2 suv = texcoord + vec2(cos(a) / aspect, sin(a)) * rr;
                 if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) continue;
+                vec3 p = viewPosAt(suv);
+                // Hand & gehaltenes Item (sehr nah an der Kamera) ignorieren —
+                // sie wuerden sonst Lichtfarbe und -richtung verfaelschen
+                if (length(p) < 0.6) continue;
                 float lm = texture2D(colortex1, suv).x;
-                if (lm > bestLm) { bestLm = lm; bestUV = suv; }
+                sPos[i] = p;
+                float w = lm * lm * lm;
+                sW[i] = w * w;
+                if (lm > bestLm) { bestLm = lm; bestUV = suv; bestPos = p; }
             }
-
-            // nur mit klarer Richtung zur Quelle beschatten — dadurch ist
-            // die Quelle selbst automatisch schattenfrei
             float conf = smoothstep(0.02, 0.10, bestLm - torchC);
+
+#ifdef COLORED_BLOCKLIGHT
+            // Farbe der Quelle am hellsten Punkt ablesen (Seelaterne tuerkis,
+            // Redstone rot, Fackel warm) und die beleuchtete Flaeche einfaerben
+            vec3 srcCol = texture2D(colortex0, bestUV).rgb;
+            float srcMax = max(srcCol.r, max(srcCol.g, srcCol.b));
+            if (srcMax > 0.05) {
+                float tintAmt = COLORED_BL_STRENGTH * conf * smoothstep(0.25, 0.7, torchC);
+                color.rgb *= mix(vec3(1.0), srcCol / srcMax, tintAmt);
+            }
+#endif
+
+#ifdef BL_SHADOWS
             if (conf > 0.01) {
                 vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
                 vec3 nrm = normalAt(texcoord, viewPos);
-                // Quelle sitzt meist etwas ueber der hellsten Flaeche
-                vec3 lightP = viewPosAt(bestUV) + upV * 0.5;
+                // LOKALER Schwerpunkt um die dominante Quelle: die Gewichte
+                // fallen mit dem Abstand zum hellsten Punkt ab, damit zwei
+                // getrennte Quellen keinen Phantom-Mittelpunkt in einer Wand
+                // dazwischen erzeugen
+                vec3 cSum = vec3(0.0);
+                float wSum = 0.0;
+                for (int i = 0; i < 16; i++) {
+                    vec3 dv = sPos[i] - bestPos;
+                    float pw = sW[i] / (1.0 + dot(dv, dv));
+                    cSum += sPos[i] * pw;
+                    wSum += pw;
+                }
+                vec3 lightP = cSum / max(wSum, 1.0e-6) + upV * 0.4;
                 vec3 toL = lightP - viewPos;
                 float dL = length(toL);
                 vec3 ldir = toL / max(dL, 0.001);
-                // nur wenn das Licht VOR der Flaeche liegt: der March steigt
-                // dann von der Tangentialebene weg und kann eine ebene Flaeche
+                // 1 Block vor der Quelle stoppen: der Quellblock selbst darf den
+                // March nicht treffen (sonst Schattenring um die Laterne)
+                float range = min(dL - 1.0, 5.0);
+                // und nur wenn das Licht VOR der Flaeche liegt: der March steigt
+                // von der Tangentialebene weg und kann eine ebene Flaeche
                 // (z.B. eine von unten beleuchtete Decke) nie selbst verdecken
-                if (dL > 0.6 && dot(ldir, nrm) > 0.05) {
-                    // von der eigenen Flaeche abheben gegen Selbstverdeckung
+                if (dL > 0.8 && range > 0.3 && dot(ldir, nrm) > 0.05) {
                     vec3 startP = viewPos + nrm * 0.12;
-                    float range = min(dL - 0.4, 5.0);
                     float occ = 0.0;
                     float j = bayer8(gl_FragCoord.xy + 37.0);
                     for (int i = 1; i <= 8; i++) {
@@ -256,6 +294,7 @@ void main() {
                     color.rgb *= 1.0 - shadeAmt * 0.6;
                 }
             }
+#endif
         }
     }
 #endif
@@ -291,7 +330,7 @@ void main() {
     float dnw = 0.0;
     vec3 lightCol = vec3(0.0);
 #ifdef LIGHT_SHAFTS
-    if (isEyeInWater == 0) {
+    if (isEyeInWater != 2) {
         float rayLen = min(dist, shadowDistance);
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
         vec3 sStart = toShadowClip(vec3(0.0));
@@ -319,6 +358,8 @@ void main() {
         rainW = 1.0 - rainStrength * 0.85;
         dnw = clamp(dayF + nightF * 0.6, 0.0, 1.0) * rainW;
         lightCol = dayF * vec3(0.85, 0.80, 0.68) + nightF * vec3(0.18, 0.22, 0.30);
+        // unter Wasser: Sonnenstrahlen kuehl-gruenlich gefiltert
+        if (isEyeInWater == 1) lightCol *= vec3(0.45, 0.80, 0.75);
 
         media = 1.0 - exp(-rayLen * density * 2.5);
 
@@ -354,6 +395,8 @@ void main() {
     color.rgb += lightCol * (vis * phase * media * VL_STRENGTH) * rainW;
 #endif
 
-/* DRAWBUFFERS:0 */
+/* DRAWBUFFERS:2 */
+    // Ausgabe in colortex2: composite darf dann gefahrlos NACHBAR-Pixel aus
+    // colortex0 lesen (farbiges Blocklicht) — kein Read-Write-Konflikt
     gl_FragData[0] = color;
 }

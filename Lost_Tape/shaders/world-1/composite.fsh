@@ -58,6 +58,6 @@ void main() {
 
     color.rgb = mix(color.rgb, fogC, fog);
 
-/* DRAWBUFFERS:0 */
+/* DRAWBUFFERS:2 */
     gl_FragData[0] = color;
 }
