@@ -284,7 +284,11 @@ void main() {
                             // das erfasst auch dunkle Rahmen der Quellbloecke
                             float oLm = texture2D(colortex1, suv).x;
                             float oToL = distance(op, lightP);
-                            bool isSource = oLm > 0.90 && oToL < 1.6;
+                            // Pixel mit praktisch vollem Blocklicht sitzen direkt
+                            // an IRGENDEINER Quelle (auch dunkle Rahmen) — nie als
+                            // Verdecker werten, sonst geistern Quellsilhouetten
+                            // auch zwischen benachbarten Lichtquellen umher
+                            bool isSource = oLm > 0.92 || (oLm > 0.90 && oToL < 1.6);
                             if (!isSource && oToL > 1.0 && oToL < dL - 0.2) { occ = 1.0; break; }
                         }
                     }
