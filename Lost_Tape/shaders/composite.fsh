@@ -104,8 +104,6 @@ vec3 normalAt(vec2 uv, vec3 c) {
 
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
-    vec3 albedo0 = color.rgb;
-    vec2 lm0 = texture2D(colortex1, texcoord).xy;
     // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
     float depth = texture2D(depthtex1, texcoord).x;
     // Tiefe MIT Transluzentem: erkennt Flaechen, die unter Wasser/Glas liegen
@@ -408,33 +406,6 @@ void main() {
     color.rgb += lightCol * (vis * phase * media * VL_STRENGTH) * rainW;
 #endif
 
-    // Emissiv-Maske: eigene Pixel leuchtender Bloecke (hohes Blocklicht UND
-    // helle Textur). Wird in composite1/2 weichgezeichnet und in final als
-    // farbiges Blocklicht angewendet — dadurch glatte Farbkreise ohne
-    // Geisterkopien der Quellsilhouette.
-    float albMax = max(albedo0.r, max(albedo0.g, albedo0.b));
-    // strenge Schwellen: nur die praktisch voll hellen Pixel der Quellbloecke
-    // selbst zaehlen — beleuchteter Sand daneben (ca. 0.8) faellt durch und
-    // kann die Quellfarbe nicht mehr mit Gelb uebertoenen
-    float emisW = smoothstep(0.85, 0.93, lm0.x) * smoothstep(0.85, 0.97, albMax);
-    // tagsueber im Freien uebertoent die Sonne das Blocklicht — sonnenhelle
-    // Flaechen duerfen das Farbfeld dann nicht fuellen (Sand-Halos!)
-    float dayF0 = clamp(sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
-    emisW *= 1.0 - smoothstep(0.5, 0.9, lm0.y) * dayF0;
-    // Himmel & Nahbereich (Hand) ausschliessen: der Himmel steht im
-    // Datenpuffer auf der weissen Loeschfarbe und wuerde sonst als riesige
-    // "Lichtquelle" den ganzen Himmel verschmieren
-    if (depth >= 1.0 || dist < 0.6) emisW = 0.0;
-    // grosse KUEHLE Quellflaechen (Seelaterne = ganzer Block) daempfen,
-    // damit sie kleine warme Flammen (Laterne, Fackel) nicht allein durch
-    // ihre Flaeche ueberstimmen — jede Quelle besitzt so ihren Nahbereich
-    vec3 cN = albedo0 / max(albMax, 0.001);
-    if (cN.b > 0.62 && cN.g > 0.80) emisW *= 0.2;
-
-/* DRAWBUFFERS:23 */
+/* DRAWBUFFERS:2 */
     gl_FragData[0] = color;
-    // ROHE Farbe speichern — das Herausrechnen des Warmtons hatte weisse
-    // Pixel (Flammenkerne!) rechnerisch blau gemacht; die Klassifizierung
-    // in final ist stattdessen auf die Rohwerte kalibriert
-    gl_FragData[1] = vec4(albedo0 * emisW, emisW);
 }

@@ -19,17 +19,10 @@
 #define SCANLINE_STRENGTH 0.25 // [0.10 0.15 0.25 0.35 0.50]
 #define FLICKER // subtiles analoges Helligkeitsflackern
 //#define VHS_WOBBLE
-#define COLORED_BLOCKLIGHT // Blocklicht uebernimmt die Farbe der Quelle (Seelaterne tuerkis usw.)
-#define COLORED_BL_STRENGTH 1.00 // [0.30 0.45 0.60 0.80 1.00]
-
-uniform sampler2D colortex1;
 uniform sampler2D colortex2;
-uniform sampler2D colortex3;
-uniform sampler2D depthtex1;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float frameTimeCounter;
-uniform float sunAngle;
 
 varying vec2 texcoord;
 
@@ -62,41 +55,6 @@ void main() {
     col.r = texture2D(colortex2, uv - ca).r;
     col.g = texture2D(colortex2, uv).g;
     col.b = texture2D(colortex2, uv + ca).b;
-
-#ifdef COLORED_BLOCKLIGHT
-    // farbiges Blocklicht: das weichgezeichnete Leuchtfarben-Feld faerbt
-    // blocklicht-beleuchtete Flaechen in der Farbe ihrer Quelle
-    vec4 lf = texture2D(colortex3, uv);
-    // nie auf den Himmel anwenden (dessen Lichtdaten sind Loeschfarbe Weiss)
-    if (lf.a > 0.003 && texture2D(depthtex1, uv).x < 1.0) {
-        vec2 lmF = texture2D(colortex1, uv).xy;
-        vec3 srcC = lf.rgb / lf.a;
-        float srcMax = max(srcC.r, max(srcC.g, srcC.b));
-        if (srcMax > 0.05) {
-            vec3 c = srcC / srcMax;
-            // Quellfarbe auf dieselbe kraeftige Palette einrasten, die auch
-            // das Hand-Licht benutzt — der platzierte Block leuchtet dann
-            // genauso blau/rot wie das gehaltene Item
-            // EXAKT die Farbwerte des Hand-Lichts (gbuffers-Palette), damit
-            // platzierter Block und gehaltenes Item identisch leuchten
-            vec3 tintC = vec3(1.00, 0.72, 0.45);                                       // warm — wie Hand-Licht Standard
-            if (c.b > 0.62 && c.g > 0.80)
-                // kraeftiges Cyan = Soul-Quellen, blasses = Seelaterne
-                tintC = (c.r < 0.70) ? vec3(0.35, 0.85, 1.00) : vec3(0.60, 0.92, 0.95);
-            else if (c.r > c.g + 0.35 && c.r > c.b + 0.45) tintC = vec3(1.00, 0.25, 0.15);    // rot — wie Hand-Licht
-            else if (c.b > c.g + 0.15 && c.r > 0.90) tintC = vec3(0.75, 0.45, 1.00);          // violett — wie Hand-Licht
-            // relativ zum warmen Vanilla-Blocklicht anwenden: warme Quellen
-            // bleiben wie gehabt, kalte drehen den Pool wirklich auf blau
-            vec3 rel = clamp(tintC / vec3(1.00, 0.82, 0.60), 0.0, 1.7);
-            // tagsueber auf sonnenbeschienenen Flaechen ausblenden — dort
-            // uebertoent das Sonnenlicht farbiges Blocklicht ohnehin
-            float dayF = clamp(sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
-            float dayWash = 1.0 - smoothstep(0.5, 0.9, lmF.y) * dayF;
-            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, lmF.x) * smoothstep(0.002, 0.02, lf.a) * dayWash;
-            col *= mix(vec3(1.0), rel, amt);
-        }
-    }
-#endif
 
     // ausgeblichene Schwarztoene (VHS-Look)
     col = vec3(BLACK_LIFT) * vec3(0.80, 0.95, 0.85) + col * (1.0 - BLACK_LIFT);
