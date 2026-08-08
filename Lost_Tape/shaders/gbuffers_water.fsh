@@ -19,6 +19,7 @@ varying vec2 texcoord;
 varying vec2 lmcoord;
 varying vec4 glcolor;
 varying float viewDist;
+varying float isWater;
 
 void main() {
     vec4 color = texture2D(texture, texcoord) * glcolor;
@@ -56,10 +57,13 @@ void main() {
 
     color.rgb *= light;
 
-    // Wasser durchsichtiger machen: die Blockfarben am Grund kommen durch,
-    // statt von der blauen Wasserflaeche ueberdeckt zu werden
-    color.rgb *= vec3(0.92, 0.97, 0.95);
-    color.a *= WATER_OPACITY;
+    // Wasser durchsichtiger machen: die Blockfarben am Grund kommen durch.
+    // NUR echtes Wasser — Nether-Portal, Glas & Co. behalten ihre
+    // Vanilla-Deckkraft (das Portal war sonst fast unsichtbar)
+    if (isWater > 0.5) {
+        color.rgb *= vec3(0.92, 0.97, 0.95);
+        color.a *= WATER_OPACITY;
+    }
 
 /* DRAWBUFFERS:0 */
     // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten
