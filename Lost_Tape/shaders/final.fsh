@@ -73,19 +73,23 @@ void main() {
         vec3 srcC = lf.rgb / lf.a;
         float srcMax = max(srcC.r, max(srcC.g, srcC.b));
         if (srcMax > 0.05) {
-            vec3 tintC = srcC / srcMax;
-            // Abweichung von Weiss verstaerken, damit sich die Quellen
-            // klar unterscheiden (Seelaterne tuerkis, Redstone rot ...)
-            tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 3.0, 0.0, 1.0);
-            // Schwellwert statt Skalierung: wo ueberhaupt ein Leuchtfeld
-            // ankommt, gilt die volle Quellfarbe — die FORM des Farbkreises
-            // bestimmt das Fackellicht (torchL), nicht der Blur-Radius
+            vec3 c = srcC / srcMax;
+            // Quellfarbe auf dieselbe kraeftige Palette einrasten, die auch
+            // das Hand-Licht benutzt — der platzierte Block leuchtet dann
+            // genauso blau/rot wie das gehaltene Item
+            vec3 tintC = vec3(1.00, 0.82, 0.60);                                       // warm (Fackel & Co.)
+            if (c.b > c.r + 0.08 && c.g > c.r) tintC = vec3(0.55, 0.90, 1.00);                // tuerkis
+            else if (c.r > c.g + 0.25 && c.r > c.b + 0.30) tintC = vec3(1.00, 0.35, 0.25);    // rot
+            else if (c.b > c.g + 0.06 && c.r > c.g) tintC = vec3(0.80, 0.55, 1.00);           // violett
+            // relativ zum warmen Vanilla-Blocklicht anwenden: warme Quellen
+            // bleiben wie gehabt, kalte drehen den Pool wirklich auf blau
+            vec3 rel = clamp(tintC / vec3(1.00, 0.82, 0.60), 0.0, 1.7);
             // tagsueber auf sonnenbeschienenen Flaechen ausblenden — dort
             // uebertoent das Sonnenlicht farbiges Blocklicht ohnehin
             float dayF = clamp(sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
             float dayWash = 1.0 - smoothstep(0.5, 0.9, lmF.y) * dayF;
             float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, lmF.x) * smoothstep(0.002, 0.02, lf.a) * dayWash;
-            col *= mix(vec3(1.0), tintC, amt);
+            col *= mix(vec3(1.0), rel, amt);
         }
     }
 #endif
