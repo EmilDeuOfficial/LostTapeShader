@@ -25,6 +25,7 @@
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
+uniform sampler2D depthtex1;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float frameTimeCounter;
@@ -65,7 +66,8 @@ void main() {
     // farbiges Blocklicht: das weichgezeichnete Leuchtfarben-Feld faerbt
     // blocklicht-beleuchtete Flaechen in der Farbe ihrer Quelle
     vec4 lf = texture2D(colortex3, uv);
-    if (lf.a > 0.02) {
+    // nie auf den Himmel anwenden (dessen Lichtdaten sind Loeschfarbe Weiss)
+    if (lf.a > 0.02 && texture2D(depthtex1, uv).x < 1.0) {
         float torchL = texture2D(colortex1, uv).x;
         vec3 srcC = lf.rgb / lf.a;
         float srcMax = max(srcC.r, max(srcC.g, srcC.b));

@@ -12,7 +12,7 @@ void main() {
     float wsum = 0.0;
     for (int i = -6; i <= 6; i++) {
         float w = 7.0 - abs(float(i));
-        vec2 uv = texcoord + vec2(0.0, float(i) * 24.0 / viewHeight);
+        vec2 uv = texcoord + vec2(0.0, float(i) * 16.0 / viewHeight);
         sum += texture2D(colortex3, uv) * w;
         wsum += w;
     }

@@ -398,7 +398,14 @@ void main() {
     // farbiges Blocklicht angewendet — dadurch glatte Farbkreise ohne
     // Geisterkopien der Quellsilhouette.
     float albMax = max(albedo0.r, max(albedo0.g, albedo0.b));
-    float emisW = smoothstep(0.78, 0.88, lmx0) * smoothstep(0.50, 0.80, albMax);
+    // strenge Schwellen: nur die praktisch voll hellen Pixel der Quellbloecke
+    // selbst zaehlen — beleuchteter Sand daneben (ca. 0.8) faellt durch und
+    // kann die Quellfarbe nicht mehr mit Gelb uebertoenen
+    float emisW = smoothstep(0.85, 0.93, lmx0) * smoothstep(0.85, 0.97, albMax);
+    // Himmel & Nahbereich (Hand) ausschliessen: der Himmel steht im
+    // Datenpuffer auf der weissen Loeschfarbe und wuerde sonst als riesige
+    // "Lichtquelle" den ganzen Himmel verschmieren
+    if (depth >= 1.0 || dist < 0.6) emisW = 0.0;
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
