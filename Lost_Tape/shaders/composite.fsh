@@ -105,7 +105,7 @@ vec3 normalAt(vec2 uv, vec3 c) {
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
     vec3 albedo0 = color.rgb;
-    float lmx0 = texture2D(colortex1, texcoord).x;
+    vec2 lm0 = texture2D(colortex1, texcoord).xy;
     // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
     float depth = texture2D(depthtex1, texcoord).x;
     // Tiefe MIT Transluzentem: erkennt Flaechen, die unter Wasser/Glas liegen
@@ -401,7 +401,11 @@ void main() {
     // strenge Schwellen: nur die praktisch voll hellen Pixel der Quellbloecke
     // selbst zaehlen — beleuchteter Sand daneben (ca. 0.8) faellt durch und
     // kann die Quellfarbe nicht mehr mit Gelb uebertoenen
-    float emisW = smoothstep(0.85, 0.93, lmx0) * smoothstep(0.85, 0.97, albMax);
+    float emisW = smoothstep(0.85, 0.93, lm0.x) * smoothstep(0.85, 0.97, albMax);
+    // tagsueber im Freien uebertoent die Sonne das Blocklicht — sonnenhelle
+    // Flaechen duerfen das Farbfeld dann nicht fuellen (Sand-Halos!)
+    float dayF0 = clamp(sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
+    emisW *= 1.0 - smoothstep(0.5, 0.9, lm0.y) * dayF0;
     // Himmel & Nahbereich (Hand) ausschliessen: der Himmel steht im
     // Datenpuffer auf der weissen Loeschfarbe und wuerde sonst als riesige
     // "Lichtquelle" den ganzen Himmel verschmieren

@@ -29,6 +29,7 @@ uniform sampler2D depthtex1;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float frameTimeCounter;
+uniform float sunAngle;
 
 varying vec2 texcoord;
 
@@ -68,7 +69,7 @@ void main() {
     vec4 lf = texture2D(colortex3, uv);
     // nie auf den Himmel anwenden (dessen Lichtdaten sind Loeschfarbe Weiss)
     if (lf.a > 0.003 && texture2D(depthtex1, uv).x < 1.0) {
-        float torchL = texture2D(colortex1, uv).x;
+        vec2 lmF = texture2D(colortex1, uv).xy;
         vec3 srcC = lf.rgb / lf.a;
         float srcMax = max(srcC.r, max(srcC.g, srcC.b));
         if (srcMax > 0.05) {
@@ -79,7 +80,11 @@ void main() {
             // Schwellwert statt Skalierung: wo ueberhaupt ein Leuchtfeld
             // ankommt, gilt die volle Quellfarbe — die FORM des Farbkreises
             // bestimmt das Fackellicht (torchL), nicht der Blur-Radius
-            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * smoothstep(0.002, 0.02, lf.a);
+            // tagsueber auf sonnenbeschienenen Flaechen ausblenden — dort
+            // uebertoent das Sonnenlicht farbiges Blocklicht ohnehin
+            float dayF = clamp(sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
+            float dayWash = 1.0 - smoothstep(0.5, 0.9, lmF.y) * dayF;
+            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, lmF.x) * smoothstep(0.002, 0.02, lf.a) * dayWash;
             col *= mix(vec3(1.0), tintC, amt);
         }
     }
