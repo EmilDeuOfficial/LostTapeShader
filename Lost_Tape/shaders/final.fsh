@@ -20,7 +20,7 @@
 #define FLICKER // subtiles analoges Helligkeitsflackern
 //#define VHS_WOBBLE
 #define COLORED_BLOCKLIGHT // Blocklicht uebernimmt die Farbe der Quelle (Seelaterne tuerkis usw.)
-#define COLORED_BL_STRENGTH 0.60 // [0.30 0.45 0.60 0.80 1.00]
+#define COLORED_BL_STRENGTH 1.00 // [0.30 0.45 0.60 0.80 1.00]
 
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
@@ -77,12 +77,14 @@ void main() {
             // Quellfarbe auf dieselbe kraeftige Palette einrasten, die auch
             // das Hand-Licht benutzt — der platzierte Block leuchtet dann
             // genauso blau/rot wie das gehaltene Item
-            // Klassen wie beim Hand-Licht, kalibriert auf die ROHEN Farben
-            // (mit Warmlicht multipliziert): Seelaterne hat roh b~0.75,
-            // Laternenflamme nur b~0.40 — saubere Trennung ohne Umrechnung
-            vec3 tintC = vec3(1.00, 0.82, 0.60);                                       // gelb/warm (Standard)
-            if (c.b > 0.62 && c.g > 0.80) tintC = vec3(0.55, 0.90, 1.00);                     // blau (Seelaterne, Soul)
-            else if (c.r > c.g + 0.35 && c.r > c.b + 0.45) tintC = vec3(1.00, 0.35, 0.25);    // rot (Redstone)
+            // EXAKT die Farbwerte des Hand-Lichts (gbuffers-Palette), damit
+            // platzierter Block und gehaltenes Item identisch leuchten
+            vec3 tintC = vec3(1.00, 0.72, 0.45);                                       // warm — wie Hand-Licht Standard
+            if (c.b > 0.62 && c.g > 0.80)
+                // kraeftiges Cyan = Soul-Quellen, blasses = Seelaterne
+                tintC = (c.r < 0.70) ? vec3(0.35, 0.85, 1.00) : vec3(0.60, 0.92, 0.95);
+            else if (c.r > c.g + 0.35 && c.r > c.b + 0.45) tintC = vec3(1.00, 0.25, 0.15);    // rot — wie Hand-Licht
+            else if (c.b > c.g + 0.15 && c.r > 0.90) tintC = vec3(0.75, 0.45, 1.00);          // violett — wie Hand-Licht
             // relativ zum warmen Vanilla-Blocklicht anwenden: warme Quellen
             // bleiben wie gehabt, kalte drehen den Pool wirklich auf blau
             vec3 rel = clamp(tintC / vec3(1.00, 0.82, 0.60), 0.0, 1.7);
