@@ -28,13 +28,15 @@ void main() {
     vec3 light = texture2D(lightmap, lmcoord).rgb;
     light = pow(light, vec3(LIGHT_GAMMA));
 
-    // Fackeln & Co. von der Abdunklung ausnehmen: Blocklicht separat samplen
-    vec3 torchLight = texture2D(lightmap, vec2(lmcoord.x, 0.03125)).rgb;
-    light = max(light, torchLight * BLOCKLIGHT_BOOST);
-
-    // Mondlicht: hellt Naechte auf, nur wo Himmel sichtbar ist (Hoehlen bleiben dunkel)
-    float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
-    light += vec3(0.035, 0.045, 0.065) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
+    // Aufhellungen (Fackel-Boost, Mondlicht) NUR auf echtem Wasser:
+    // gefaerbtes Glas & Co. wuerden sonst im Dunkeln als heller Film
+    // ueber der Szene liegen und die Flaechen dahinter aufhellen
+    if (blockId > 7.5 && blockId < 8.5) {
+        vec3 torchLight = texture2D(lightmap, vec2(lmcoord.x, 0.03125)).rgb;
+        light = max(light, torchLight * BLOCKLIGHT_BOOST);
+        float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
+        light += vec3(0.035, 0.045, 0.065) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
+    }
 
 #ifdef HAND_LIGHT
     // dynamisches Licht: gehaltene Fackeln & Co. beleuchten die Umgebung
