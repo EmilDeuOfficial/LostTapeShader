@@ -213,6 +213,8 @@ void main() {
             float bestLm = torchC;
             vec2 bestUV = texcoord;
             vec3 bestPos = viewPos;
+            float bestGlow = -1.0;
+            vec3 srcCol = vec3(0.0);
             vec3 sPos[16];
             float sW[16];
             for (int i = 0; i < 16; i++) {
@@ -233,17 +235,29 @@ void main() {
                 float w = lm * lm * lm;
                 sW[i] = w * w;
                 if (lm > bestLm) { bestLm = lm; bestUV = suv; bestPos = p; }
+#ifdef COLORED_BLOCKLIGHT
+                // Quellfarbe vom hellsten SELBSTLEUCHTENDEN Pixel nehmen:
+                // der Quellblock ueberstrahlt beleuchteten Boden deutlich
+                if (lm > 0.88) {
+                    vec3 c0 = texture2D(colortex0, suv).rgb;
+                    float glow = c0.r + c0.g + c0.b;
+                    if (glow > bestGlow) { bestGlow = glow; srcCol = c0; }
+                }
+#endif
             }
             float conf = smoothstep(0.02, 0.10, bestLm - torchC);
 
 #ifdef COLORED_BLOCKLIGHT
-            // Farbe der Quelle am hellsten Punkt ablesen (Seelaterne tuerkis,
-            // Redstone rot, Fackel warm) und die beleuchtete Flaeche einfaerben
-            vec3 srcCol = texture2D(colortex0, bestUV).rgb;
+            // Beleuchtete Flaechen in der Farbe der Quelle einfaerben
+            // (Seelaterne tuerkis, Redstone rot, Fackel warm)
+            if (bestGlow < 0.0) srcCol = texture2D(colortex0, bestUV).rgb;
             float srcMax = max(srcCol.r, max(srcCol.g, srcCol.b));
             if (srcMax > 0.05) {
+                vec3 tintC = srcCol / srcMax;
+                // Farbanteil verstaerken, sonst wirken alle Quellen fast gleich
+                tintC *= tintC;
                 float tintAmt = COLORED_BL_STRENGTH * conf * smoothstep(0.25, 0.7, torchC);
-                color.rgb *= mix(vec3(1.0), srcCol / srcMax, tintAmt);
+                color.rgb *= mix(vec3(1.0), tintC, tintAmt);
             }
 #endif
 
@@ -285,7 +299,10 @@ void main() {
                         if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                         float diffZ = (-sp.z) - (-viewPosAt(suv).z);
                         float eps = 0.07 + 0.03 * (-sp.z);
-                        if (diffZ > eps && diffZ < eps + 1.0) { occ = 1.0; break; }
+                        // enges Dicken-Fenster: verschobene Silhouetten von
+                        // Vordergrund-Objekten ("Geister-Reflexionen") zaehlen
+                        // nicht mehr als Verdeckung, echte Blocker schon
+                        if (diffZ > eps && diffZ < eps + 0.5) { occ = 1.0; break; }
                     }
 
                     float shadeAmt = BL_SHADOW_STRENGTH * occ * conf;
@@ -374,9 +391,9 @@ void main() {
         // damit der Look unabhaengig von der Renderdistanz gleich bleibt
         float upness = smoothstep(0.0, 0.35, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
-        // unter Wasser: Horizont versinkt im Truebwasser, aber Sonne/Mond
-        // bleiben nach oben hin klar sichtbar
-        if (isEyeInWater == 1) fog = mix(1.0, 0.35, upness);
+        // unter Wasser: Horizont versinkt im Truebwasser; nach oben derselbe
+        // Dunst wie ueber Wasser, damit die Sonne in beiden Faellen gleich wirkt
+        if (isEyeInWater == 1) fog = mix(1.0, 0.55, upness);
     } else {
         // Nebel beginnt erst ab FOG_START Bloecken (unter Wasser/Lava sofort)
         float fogDist = dist;
