@@ -260,7 +260,7 @@ void main() {
                 vec3 ldir = toL / max(dL, 0.001);
                 // 1 Block vor der Quelle stoppen: der Quellblock selbst darf den
                 // March nicht treffen (sonst Schattenring um die Laterne)
-                float range = min(dL - 1.0, 5.0);
+                float range = min(dL - 1.3, 5.0);
                 // und nur wenn das Licht VOR der Flaeche liegt: der March steigt
                 // von der Tangentialebene weg und kann eine ebene Flaeche
                 // (z.B. eine von unten beleuchtete Decke) nie selbst verdecken
@@ -283,7 +283,9 @@ void main() {
                             // (< 0.9) und kein Vordergrund-Objekt, das weiter
                             // von der Quelle weg ist als die Flaeche (Geister)
                             float oToL = distance(op, lightP);
-                            if (oToL > 0.9 && oToL < dL - 0.2) { occ = 1.0; break; }
+                            // 1.25: die Oberflaeche des Quellblocks reicht bis
+                            // ~1.1 vom Zentrum — darunter nur Geisterbilder
+                            if (oToL > 1.25 && oToL < dL - 0.2) { occ = 1.0; break; }
                         }
                     }
 
@@ -413,5 +415,8 @@ void main() {
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
-    gl_FragData[1] = vec4(albedo0 * emisW, emisW);
+    // das warme Vanilla-Blocklicht herausrechnen, damit die ECHTE Texturfarbe
+    // der Quelle gespeichert wird (Seelaterne cyan statt warm verfaerbt);
+    // *0.6 als Headroom gegen Kanal-Clipping im 8-Bit-Buffer
+    gl_FragData[1] = vec4(albedo0 / vec3(1.00, 0.84, 0.66) * 0.6 * emisW, emisW);
 }
