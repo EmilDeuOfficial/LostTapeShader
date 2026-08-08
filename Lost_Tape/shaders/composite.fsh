@@ -313,18 +313,22 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
-    // Das fast deckende Nether-Portal nicht mit dem vollen Nebel der WEIT
-    // dahinter liegenden Szene auswaschen. Wirkt NUR auf Portal-Pixel
-    // (Marker aus dem Wasser-Pass in colortex3) — Glas und Wasser zeigen
-    // den vollen Nebel der Szene dahinter, wie in Vanilla
-    float portalM = clamp(texture2D(colortex3, texcoord).r * 1.5, 0.0, 1.0);
-    if (portalM > 0.001) {
+    // Transluzente Flaechen bekommen ihren Nebel anteilig auf ihre EIGENE
+    // Distanz bezogen (Deckkraft-Anteil aus colortex3.a) — wie in Vanilla:
+    // - Glas vor dem Himmel verschwindet nicht mehr im Horizontnebel
+    //   (vorher ersetzte fog=1.0 dort den ganzen Pixel samt Glas)
+    // - das fast deckende Portal bleicht nicht im Fernnebel aus
+    // - der Hintergrund HINTER dem Glas behaelt seinen Nebel (Anteil 1-a)
+    float transCov = texture2D(colortex3, texcoord).a;
+    if (transCov > 0.002 && depthT < depth) {
         vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
         vec4 vpT = gbufferProjectionInverse * ndcT;
         float distT = length(vpT.xyz / vpT.w);
-        float nearT = 1.0 - smoothstep(8.0, 24.0, distT);
-        float gapT  = smoothstep(12.0, 36.0, dist - distT);
-        fog *= 1.0 - 0.45 * nearT * gapT * portalM;
+        float fogDT = distT;
+        if (isEyeInWater == 0) fogDT = max(distT - FOG_START, 0.0);
+        float fogT = 1.0 - exp(-fogDT * density);
+        fogT = max(fogT, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, distT));
+        fog = mix(fog, min(fog, fogT), transCov);
     }
 
     color.rgb = mix(color.rgb, fogC, fog);

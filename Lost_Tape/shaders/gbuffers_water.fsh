@@ -60,7 +60,6 @@ void main() {
     color.rgb *= light;
 
     float tLum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    float portalM = 0.0;
     if (blockId > 10007.5 && blockId < 10008.5) {
         // Wasser durchsichtiger: die Blockfarben am Grund kommen durch
         color.rgb *= vec3(0.92, 0.97, 0.95);
@@ -70,7 +69,6 @@ void main() {
         // damit das Lila das entsaettigende Analog-Grading uebersteht
         color.a = min(color.a * 2.2, 0.97);
         color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
-        portalM = 1.0;
     } else {
         // gefaerbtes Glas & Co.: Deckkraft bleibt VANILLA, damit die
         // Blockfarben und Texturen dahinter erkennbar bleiben — nur ein
@@ -81,7 +79,8 @@ void main() {
 /* DRAWBUFFERS:03 */
     // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten
     gl_FragData[0] = color;
-    // Portal-Marker fuer composite: nur Portal-Pixel bekommen dort die
-    // Nebel-Reduktion (Glas/Wasser sollen voll benebelt bleiben)
-    gl_FragData[1] = vec4(portalM, 0.0, 0.0, color.a);
+    // colortex3 fuer composite: Alpha = Deckkraft der transluzenten
+    // Flaeche — der Nebel wird anteilig auf DEREN Distanz bezogen,
+    // damit Glas vor dem Himmel nicht im Horizontnebel verschwindet
+    gl_FragData[1] = vec4(0.0, 0.0, 0.0, color.a);
 }
