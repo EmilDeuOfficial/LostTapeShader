@@ -288,7 +288,10 @@ void main() {
                             // an IRGENDEINER Quelle (auch dunkle Rahmen) — nie als
                             // Verdecker werten, sonst geistern Quellsilhouetten
                             // auch zwischen benachbarten Lichtquellen umher
-                            bool isSource = oLm > 0.92 || (oLm > 0.90 && oToL < 1.6);
+                            // nahe am Lichtzentrum reicht schon maessiges
+                            // Blocklicht (0.80) — erfasst auch Fackel-STIELE,
+                            // deren Lichtwert knapp unter dem Maximum liegt
+                            bool isSource = oLm > 0.92 || (oLm > 0.80 && oToL < 1.6);
                             // Dicke pruefen: hauchduenne Silhouetten (z.B. der
                             // Stiel einer Redstone-Fackel) erzeugen nur
                             // Geisterlinien — echte Blocker sind breiter
@@ -422,6 +425,11 @@ void main() {
     // Datenpuffer auf der weissen Loeschfarbe und wuerde sonst als riesige
     // "Lichtquelle" den ganzen Himmel verschmieren
     if (depth >= 1.0 || dist < 0.6) emisW = 0.0;
+    // grosse KUEHLE Quellflaechen (Seelaterne = ganzer Block) daempfen,
+    // damit sie kleine warme Flammen (Laterne, Fackel) nicht allein durch
+    // ihre Flaeche ueberstimmen — jede Quelle besitzt so ihren Nahbereich
+    vec3 cN = albedo0 / max(albMax, 0.001);
+    if (cN.b > 0.62 && cN.g > 0.80) emisW *= 0.35;
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
