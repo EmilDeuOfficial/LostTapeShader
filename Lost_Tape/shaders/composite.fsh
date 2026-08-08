@@ -288,8 +288,14 @@ void main() {
                             // auch zwischen benachbarten Lichtquellen umher
                             // nahe am Lichtzentrum reicht schon maessiges
                             // Blocklicht (0.80) — erfasst auch Fackel-STIELE,
-                            // deren Lichtwert knapp unter dem Maximum liegt
-                            bool isSource = oLm > 0.92 || (oLm > 0.80 && oToL < 1.6);
+                            // deren Lichtwert knapp unter dem Maximum liegt.
+                            // Zusaetzlich geometrisch: alles in der Saeule
+                            // direkt unter/ueber der Quelle (Stiel, Halterung,
+                            // Traegerblock) verschattet grundsaetzlich nie
+                            vec3 dLP = op - lightP;
+                            float vertC = dot(dLP, upV);
+                            float horizD = length(dLP - upV * vertC);
+                            bool isSource = oLm > 0.92 || (oLm > 0.80 && oToL < 1.6) || horizD < 0.7;
                             // Dicke pruefen: hauchduenne Silhouetten (z.B. der
                             // Stiel einer Redstone-Fackel) erzeugen nur
                             // Geisterlinien — echte Blocker sind breiter
