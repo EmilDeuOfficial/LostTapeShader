@@ -429,7 +429,7 @@ void main() {
     // damit sie kleine warme Flammen (Laterne, Fackel) nicht allein durch
     // ihre Flaeche ueberstimmen — jede Quelle besitzt so ihren Nahbereich
     vec3 cN = albedo0 / max(albMax, 0.001);
-    if (cN.b > 0.62 && cN.g > 0.80) emisW *= 0.35;
+    if (cN.b > 0.62 && cN.g > 0.80) emisW *= 0.2;
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
