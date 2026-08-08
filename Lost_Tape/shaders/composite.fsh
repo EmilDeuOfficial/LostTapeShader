@@ -122,9 +122,15 @@ void main() {
                  && fogColor.r - fogColor.g > 0.01 && fogColor.b - fogColor.g > 0.01;
 
     // Das End hat kein Himmelslicht — Grundhelligkeit anheben, damit die
-    // Inseln und Tuerme nicht komplett im Schwarz verschwinden.
-    // Overworld-Hoehlen bleiben davon unberuehrt (kein End-Nebel dort).
-    if (isEnd && depth < 1.0) color.rgb = color.rgb * 2.5 + 0.10;
+    // Inseln und Tuerme nicht komplett im Schwarz verschwinden. Der Lift
+    // ist helligkeitsabhaengig: Dunkles wird angehoben, bereits helle
+    // Bereiche (Fackel-/Kerzenlicht) bleiben unangetastet und brennen
+    // nicht mehr aus. Overworld-Hoehlen sind nie betroffen.
+    if (isEnd && depth < 1.0) {
+        float endLum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        float boost = mix(2.2, 1.0, smoothstep(0.06, 0.45, endLum));
+        color.rgb = color.rgb * boost + 0.055 * (1.0 - smoothstep(0.05, 0.35, endLum));
+    }
 
     // ============ Schatten ============
     // im Nether/End gibt es keine Sonne — Schattenkarte dort ueberspringen
@@ -138,8 +144,10 @@ void main() {
         // Fackellicht schuetzt vor Schatten-Abdunklung
         shStr *= 1.0 - smoothstep(0.35, 0.85, lmData.x);
 
-        // Flaechen unter Wasser: Schatten extra stark
-        if (depthT < depth - 0.0001 || isEyeInWater == 1) shStr = min(shStr * 1.6, 0.95);
+        // beim Tauchen: Schatten extra stark. NUR wenn die Kamera selbst im
+        // Wasser ist — der alte Test "irgendein Transluzentes davor" hat den
+        // Boost auch hinter Nether-Portalen und Buntglas gezuendet
+        if (isEyeInWater == 1) shStr = min(shStr * 1.6, 0.95);
 
         if (shStr > 0.005) {
             vec3 normal = normalAt(texcoord, viewPos);
