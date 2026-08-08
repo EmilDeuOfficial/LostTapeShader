@@ -15,8 +15,6 @@
 #define SHADOW_FADE_DIST 24.0 // [8.0 12.0 16.0 24.0 32.0 48.0 64.0]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
-#define BL_SHADOWS // Blocklicht-Schatten: Objekte beschatten fackelbeleuchtete Flaechen
-#define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
 #define VL_SAMPLES 16 // [8 12 16 24 32]
@@ -34,7 +32,6 @@ uniform sampler2D shadowtex1;
 uniform sampler2D shadowcolor0;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
-uniform mat4 gbufferModelView;
 uniform mat4 gbufferModelViewInverse;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
@@ -197,122 +194,6 @@ void main() {
         float aoStr = SSAO_STRENGTH * (0.6 + 0.6 * smoothstep(0.2, 0.8, torchAO));
         float distFade = 1.0 - smoothstep(32.0, 48.0, dist);
         color.rgb *= 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
-    }
-#endif
-
-    // ============ Blocklicht-Schatten (Lichtquellen-Suche) ============
-    // Spiral-Suche findet die Lichtquelle: der lightmap-gewichtete
-    // SCHWERPUNKT der hellen Region liefert ihre Position. Er ist raeumlich
-    // glatt und liegt bei einer Laterne in ihrer Mitte — alle Schatten
-    // einer Quelle zeigen dadurch in DIESELBE Richtung.
-#ifdef BL_SHADOWS
-    if (depth < 1.0 && dist < 32.0) {
-        float torchC = texture2D(colortex1, texcoord).x;
-        if (torchC > 0.15) {
-            float aspect = viewWidth / viewHeight;
-            float searchR = clamp(2.5 * gbufferProjection[1][1] / max(dist, 1.0), 0.03, 0.40);
-            float bestLm = torchC;
-            vec2 bestUV = texcoord;
-            vec3 bestPos = viewPos;
-            vec3 sPos[16];
-            float sW[16];
-            for (int i = 0; i < 16; i++) {
-                sW[i] = 0.0;
-                sPos[i] = viewPos;
-                float a = float(i) * 2.399963;
-                float rr = searchR * (0.15 + 0.85 * float(i) / 15.0);
-                // x durch aspect teilen: Suchkreis ist in Pixeln rund und der
-                // Radius damit unabhaengig vom Seitenverhaeltnis des Fensters
-                vec2 suv = texcoord + vec2(cos(a) / aspect, sin(a)) * rr;
-                if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) continue;
-                vec3 p = viewPosAt(suv);
-                // Hand & gehaltenes Item (sehr nah an der Kamera) ignorieren —
-                // sie wuerden sonst Lichtfarbe und -richtung verfaelschen
-                if (length(p) < 0.6) continue;
-                float lm = texture2D(colortex1, suv).x;
-                sPos[i] = p;
-                float w = lm * lm * lm;
-                sW[i] = w * w;
-                if (lm > bestLm) { bestLm = lm; bestUV = suv; bestPos = p; }
-            }
-            float conf = smoothstep(0.02, 0.10, bestLm - torchC);
-
-            if (conf > 0.01) {
-                vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
-                vec3 nrm = normalAt(texcoord, viewPos);
-                // LOKALER Schwerpunkt um die dominante Quelle: die Gewichte
-                // fallen mit dem Abstand zum hellsten Punkt ab, damit zwei
-                // getrennte Quellen keinen Phantom-Mittelpunkt in einer Wand
-                // dazwischen erzeugen
-                vec3 cSum = vec3(0.0);
-                float wSum = 0.0;
-                for (int i = 0; i < 16; i++) {
-                    vec3 dv = sPos[i] - bestPos;
-                    float pw = sW[i] / (1.0 + dot(dv, dv));
-                    cSum += sPos[i] * pw;
-                    wSum += pw;
-                }
-                vec3 lightP = cSum / max(wSum, 1.0e-6) + upV * 0.4;
-                vec3 toL = lightP - viewPos;
-                float dL = length(toL);
-                vec3 ldir = toL / max(dL, 0.001);
-                // 1 Block vor der Quelle stoppen: der Quellblock selbst darf den
-                // March nicht treffen (sonst Schattenring um die Laterne)
-                float range = min(dL - 1.3, 5.0);
-                // und nur wenn das Licht VOR der Flaeche liegt: der March steigt
-                // von der Tangentialebene weg und kann eine ebene Flaeche
-                // (z.B. eine von unten beleuchtete Decke) nie selbst verdecken
-                if (dL > 0.8 && range > 0.3 && dot(ldir, nrm) > 0.05) {
-                    vec3 startP = viewPos + nrm * 0.12;
-                    float occ = 0.0;
-                    float j = bayer8(gl_FragCoord.xy + 37.0);
-                    for (int i = 1; i <= 8; i++) {
-                        vec3 sp = startP + ldir * ((float(i) - j) / 8.0 * range);
-                        vec4 spc = gbufferProjection * vec4(sp, 1.0);
-                        if (spc.w <= 0.0) break;
-                        vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
-                        if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
-                        vec3 op = viewPosAt(suv);
-                        float diffZ = (-sp.z) - (-op.z);
-                        float eps = 0.07 + 0.03 * (-sp.z);
-                        if (diffZ > eps && diffZ < eps + 0.5) {
-                            // Plausibilitaet: der Verdecker muss ZWISCHEN Quelle
-                            // und Flaeche liegen. Die QUELLREGION (volles
-                            // Blocklicht UND nah am Lichtzentrum) zaehlt nie —
-                            // das erfasst auch dunkle Rahmen der Quellbloecke
-                            float oLm = texture2D(colortex1, suv).x;
-                            float oToL = distance(op, lightP);
-                            // Pixel mit praktisch vollem Blocklicht sitzen direkt
-                            // an IRGENDEINER Quelle (auch dunkle Rahmen) — nie als
-                            // Verdecker werten, sonst geistern Quellsilhouetten
-                            // auch zwischen benachbarten Lichtquellen umher
-                            // nahe am Lichtzentrum reicht schon maessiges
-                            // Blocklicht (0.80) — erfasst auch Fackel-STIELE,
-                            // deren Lichtwert knapp unter dem Maximum liegt.
-                            // Zusaetzlich geometrisch: alles in der Saeule
-                            // direkt unter/ueber der Quelle (Stiel, Halterung,
-                            // Traegerblock) verschattet grundsaetzlich nie
-                            vec3 dLP = op - lightP;
-                            float vertC = dot(dLP, upV);
-                            float horizD = length(dLP - upV * vertC);
-                            bool isSource = oLm > 0.92 || (oLm > 0.80 && oToL < 1.6) || horizD < 0.7;
-                            // Dicke pruefen: hauchduenne Silhouetten (z.B. der
-                            // Stiel einer Redstone-Fackel) erzeugen nur
-                            // Geisterlinien — echte Blocker sind breiter
-                            float dzA = (-sp.z) - (-viewPosAt(suv + vec2(3.0 / viewWidth, 0.0)).z);
-                            float dzB = (-sp.z) - (-viewPosAt(suv - vec2(3.0 / viewWidth, 0.0)).z);
-                            bool thick = dzA > eps * 0.7 && dzB > eps * 0.7;
-                            if (thick && !isSource && oToL > 1.0 && oToL < dL - 0.2) { occ = 1.0; break; }
-                        }
-                    }
-
-                    float shadeAmt = BL_SHADOW_STRENGTH * occ * conf;
-                    shadeAmt *= smoothstep(0.15, 0.4, torchC);
-                    shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
-                    color.rgb *= 1.0 - shadeAmt * 0.6;
-                }
-            }
-        }
     }
 #endif
 
