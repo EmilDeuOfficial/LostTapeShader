@@ -31,7 +31,9 @@ void main() {
     // Das End hat kein Himmelslicht — Grundhelligkeit deutlich anheben,
     // damit Inseln und Tuerme nicht komplett im Schwarz verschwinden.
     // Gilt nur hier im End-Composite, Overworld-Hoehlen bleiben stockdunkel.
-    if (depth < 1.0) color.rgb = color.rgb * 2.2 + 0.055;
+    // kraeftig: die Kontrast-Kurve im final-Pass (bis 1.2 in dunklen
+    // Presets) quetscht niedrige Werte sonst wieder auf Schwarz
+    if (depth < 1.0) color.rgb = color.rgb * 2.5 + 0.10;
 
     // fahler, kalter End-Dunst
     vec3 fogC = fogColor;
@@ -41,7 +43,7 @@ void main() {
     fogC *= vec3(0.95, 0.92, 1.05);
     // der End-Nebel darf nie schwarz sein: fahler violett-grauer Dunst als
     // Untergrenze, sonst schluckt die Nebelwand die Ferne komplett
-    fogC = max(fogC, vec3(0.10, 0.09, 0.14));
+    fogC = max(fogC, vec3(0.16, 0.15, 0.21));
 
     float density = 0.010 * FOG_DENSITY;
     density *= 1.0 + blindness * 4.0;
