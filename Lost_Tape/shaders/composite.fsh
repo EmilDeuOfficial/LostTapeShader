@@ -309,6 +309,14 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
+    // Nahe transluzente Flaechen (Portal, Fensterglas) nicht mit dem vollen
+    // Nebel der WEIT dahinter liegenden Szene auswaschen — sonst liegt ein
+    // blasser Fernnebel-Schleier ueber einem Portal direkt vor der Nase
+    vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
+    vec4 vpT = gbufferProjectionInverse * ndcT;
+    float distT = length(vpT.xyz / vpT.w);
+    if (distT < 16.0 && dist - distT > 24.0) fog *= 0.55;
+
     color.rgb = mix(color.rgb, fogC, fog);
 
 #ifdef LIGHT_SHAFTS
