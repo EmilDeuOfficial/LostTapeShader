@@ -79,7 +79,7 @@ void main() {
             // Schwellwert statt Skalierung: wo ueberhaupt ein Leuchtfeld
             // ankommt, gilt die volle Quellfarbe — die FORM des Farbkreises
             // bestimmt das Fackellicht (torchL), nicht der Blur-Radius
-            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * smoothstep(0.003, 0.015, lf.a);
+            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * smoothstep(0.002, 0.02, lf.a);
             col *= mix(vec3(1.0), tintC, amt);
         }
     }
