@@ -12,7 +12,6 @@
 #define SHADOW_STRENGTH 0.60 // [0.20 0.30 0.40 0.50 0.60 0.70 0.80 0.90 1.00]
 #define SHADOW_SOFT 1 // [0 1 2]
 #define SHADOW_BIAS 1.00 // [0.50 0.75 1.00 1.50 2.00 3.00]
-#define SHADOW_FADE_DIST 24.0 // [8.0 12.0 16.0 24.0 32.0 48.0 64.0]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
@@ -29,7 +28,7 @@ uniform sampler2D colortex1;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D shadowtex1;
-uniform sampler2D shadowcolor0;
+uniform sampler2D colortex3;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelViewInverse;
@@ -68,11 +67,7 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
     float bias = (0.0012 * f * f + 0.0005) * biasMul;
     // shadowtex1 = Schattenkarte ohne Glas/Wasser -> Transluzentes wirft keinen Vollschatten
     float diff = (p.z - bias) - texture2D(shadowtex1, p.xy).x;
-    if (diff <= 0.0) return 1.0;
-    // Distanz-Verblassen NUR fuer den Spielerschatten (Marker: Alpha < 0.7)
-    float isPlayer = 1.0 - step(0.7, texture2D(shadowcolor0, p.xy).a);
-    float blocks = diff / max(0.5 * abs(shadowProjection[2][2]), 0.0001);
-    return clamp(blocks / SHADOW_FADE_DIST, 0.0, 1.0) * isPlayer;
+    return step(diff, 0.0);
 }
 
 // View-Position an beliebiger Bildschirmposition rekonstruieren
@@ -318,17 +313,19 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
-    // Nahe transluzente Flaechen (Portal, Fensterglas) nicht mit dem vollen
-    // Nebel der WEIT dahinter liegenden Szene auswaschen — sonst liegt ein
-    // blasser Fernnebel-Schleier ueber einem Portal direkt vor der Nase
-    // WEICH ein- und ausblenden: eine harte Schwelle malt sonst einen
-    // sichtbaren Ring um den Spieler auf grossen Wasserflaechen
-    vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
-    vec4 vpT = gbufferProjectionInverse * ndcT;
-    float distT = length(vpT.xyz / vpT.w);
-    float nearT = 1.0 - smoothstep(8.0, 24.0, distT);
-    float gapT  = smoothstep(12.0, 36.0, dist - distT);
-    fog *= 1.0 - 0.45 * nearT * gapT;
+    // Das fast deckende Nether-Portal nicht mit dem vollen Nebel der WEIT
+    // dahinter liegenden Szene auswaschen. Wirkt NUR auf Portal-Pixel
+    // (Marker aus dem Wasser-Pass in colortex3) — Glas und Wasser zeigen
+    // den vollen Nebel der Szene dahinter, wie in Vanilla
+    float portalM = clamp(texture2D(colortex3, texcoord).r * 1.5, 0.0, 1.0);
+    if (portalM > 0.001) {
+        vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
+        vec4 vpT = gbufferProjectionInverse * ndcT;
+        float distT = length(vpT.xyz / vpT.w);
+        float nearT = 1.0 - smoothstep(8.0, 24.0, distT);
+        float gapT  = smoothstep(12.0, 36.0, dist - distT);
+        fog *= 1.0 - 0.45 * nearT * gapT * portalM;
+    }
 
     color.rgb = mix(color.rgb, fogC, fog);
 
