@@ -31,7 +31,7 @@ void main() {
     // Aufhellungen (Fackel-Boost, Mondlicht) NUR auf echtem Wasser:
     // gefaerbtes Glas & Co. wuerden sonst im Dunkeln als heller Film
     // ueber der Szene liegen und die Flaechen dahinter aufhellen
-    if (blockId > 7.5 && blockId < 8.5) {
+    if (blockId > 10007.5 && blockId < 10008.5) {
         vec3 torchLight = texture2D(lightmap, vec2(lmcoord.x, 0.03125)).rgb;
         light = max(light, torchLight * BLOCKLIGHT_BOOST);
         float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
@@ -59,15 +59,20 @@ void main() {
 
     color.rgb *= light;
 
-    // Wasser durchsichtiger machen: die Blockfarben am Grund kommen durch.
-    // NUR echtes Wasser — andere Transluzente behalten Vanilla-Deckkraft
-    if (blockId > 7.5 && blockId < 8.5) {
+    float tLum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    if (blockId > 10007.5 && blockId < 10008.5) {
+        // Wasser durchsichtiger: die Blockfarben am Grund kommen durch
         color.rgb *= vec3(0.92, 0.97, 0.95);
         color.a *= WATER_OPACITY;
-    } else if (blockId > 8.5 && blockId < 9.5) {
-        // Nether-Portal deutlich deckender: Vanilla-Alpha ist gegen hellen
-        // Himmel zu duenn, das Portal soll satt lila leuchten
-        color.a = min(color.a * 1.8, 0.95);
+    } else if (blockId > 10008.5 && blockId < 10009.5) {
+        // Nether-Portal: kraeftig deckend UND Saettigung vorverstaerkt,
+        // damit das Lila das entsaettigende Analog-Grading uebersteht
+        color.a = min(color.a * 2.2, 0.97);
+        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
+    } else {
+        // gefaerbtes Glas & Co.: Saettigung leicht vorverstaerken — sonst
+        // drainiert das Grading die Glasfarben komplett (Vanilla-Vergleich)
+        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.25), 0.0, 1.0);
     }
 
 /* DRAWBUFFERS:0 */
