@@ -138,6 +138,11 @@ void main() {
         shStr *= 1.0 - rainStrength * 0.8;
         // Fackellicht schuetzt vor Schatten-Abdunklung
         shStr *= 1.0 - smoothstep(0.35, 0.85, lmData.x);
+        // bei sehr flach stehender Sonne/Mond (Daemmerung) reicht die
+        // Aufloesung der Schattenkarte nicht mehr — das erzeugt Streifen-
+        // muster auf Haengen. Schatten dort sanft ausblenden.
+        float lightH = abs(sin(sunAngle * 6.2831853));
+        shStr *= smoothstep(0.04, 0.18, lightH);
 
         // beim Tauchen: Schatten extra stark. NUR wenn die Kamera selbst im
         // Wasser ist — der alte Test "irgendein Transluzentes davor" hat den
@@ -155,7 +160,11 @@ void main() {
                 // Normal-Offset gegen Acne: den Abtastpunkt von der Flaeche
                 // abheben — wirkt auf sanften Haengen (Duenen!) viel besser
                 // als reiner Tiefen-Bias und verhindert die Wellenmuster
-                vec3 offPos = playerPos + (mat3(gbufferModelViewInverse) * normal) * 0.1;
+                // Offset waechst mit der Entfernung: weiter weg sind die
+                // Schattenkarten-Texel groesser -> mehr Abstand noetig,
+                // sonst entstehen dort Acne-Streifen auf dem Gelaende
+                float offLen = 0.1 + dist * 0.012;
+                vec3 offPos = playerPos + (mat3(gbufferModelViewInverse) * normal) * offLen;
                 vec3 sclip = toShadowClip(offPos);
                 float texel = 1.0 / float(shadowMapResolution);
 
@@ -312,10 +321,14 @@ void main() {
     // Nahe transluzente Flaechen (Portal, Fensterglas) nicht mit dem vollen
     // Nebel der WEIT dahinter liegenden Szene auswaschen — sonst liegt ein
     // blasser Fernnebel-Schleier ueber einem Portal direkt vor der Nase
+    // WEICH ein- und ausblenden: eine harte Schwelle malt sonst einen
+    // sichtbaren Ring um den Spieler auf grossen Wasserflaechen
     vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
     vec4 vpT = gbufferProjectionInverse * ndcT;
     float distT = length(vpT.xyz / vpT.w);
-    if (distT < 16.0 && dist - distT > 24.0) fog *= 0.55;
+    float nearT = 1.0 - smoothstep(8.0, 24.0, distT);
+    float gapT  = smoothstep(12.0, 36.0, dist - distT);
+    fog *= 1.0 - 0.45 * nearT * gapT;
 
     color.rgb = mix(color.rgb, fogC, fog);
 
