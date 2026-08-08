@@ -113,9 +113,23 @@ void main() {
     float dist = length(viewPos);
     vec3 playerPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 
+    // Dimension zur LAUFZEIT an der Nebelfarbe erkennen — world-Ordner
+    // funktionieren auf manchen Loadern nicht zuverlaessig.
+    // Nether: kraeftig roter Nebel (gruen fast null, rot >> blau)
+    // End: dunkler violett-grauer Nebel (rot & blau beide ueber gruen)
+    bool isNether = fogColor.r > 0.10 && fogColor.g < 0.12 && fogColor.r > fogColor.b * 1.8;
+    bool isEnd    = fogColor.r < 0.20 && fogColor.b < 0.30
+                 && fogColor.r - fogColor.g > 0.01 && fogColor.b - fogColor.g > 0.01;
+
+    // Das End hat kein Himmelslicht — Grundhelligkeit anheben, damit die
+    // Inseln und Tuerme nicht komplett im Schwarz verschwinden.
+    // Overworld-Hoehlen bleiben davon unberuehrt (kein End-Nebel dort).
+    if (isEnd && depth < 1.0) color.rgb = color.rgb * 2.5 + 0.10;
+
     // ============ Schatten ============
+    // im Nether/End gibt es keine Sonne — Schattenkarte dort ueberspringen
 #ifdef SHADOWS
-    if (depth < 1.0) {
+    if (depth < 1.0 && !isNether && !isEnd) {
         // nur Flaechen abdunkeln, die Himmelslicht sehen (Hoehlen/Innenraeume bleiben unberuehrt)
         vec4 lmData = texture2D(colortex1, texcoord);
         float skyExp = lmData.y;
@@ -207,6 +221,11 @@ void main() {
     float density = 0.010 * FOG_DENSITY;
     density *= 1.0 + rainStrength * 2.0;
     density *= 1.0 + blindness * 4.0;
+    // Nether: dichter, erstickender Nebel
+    if (isNether) density *= 1.4;
+    // End: der Nebel darf nie schwarz sein — fahler violett-grauer Dunst
+    // als Untergrenze, sonst schluckt die Nebelwand die Ferne komplett
+    if (isEnd) fogC = max(fogC, vec3(0.16, 0.15, 0.21));
 #ifdef FOG_BREATHING
     density *= 1.0 + 0.12 * sin(frameTimeCounter * 0.13);
 #endif
@@ -228,7 +247,8 @@ void main() {
     float dnw = 0.0;
     vec3 lightCol = vec3(0.0);
 #ifdef LIGHT_SHAFTS
-    if (isEyeInWater != 2) {
+    // Lichtstrahlen brauchen die Sonnen-Schattenkarte — nicht im Nether/End
+    if (isEyeInWater != 2 && !isNether && !isEnd) {
         float rayLen = min(dist, shadowDistance);
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
         vec3 sStart = toShadowClip(vec3(0.0));
