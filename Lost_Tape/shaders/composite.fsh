@@ -17,8 +17,6 @@
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define BL_SHADOWS // Blocklicht-Schatten: Objekte beschatten fackelbeleuchtete Flaechen
 #define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
-#define COLORED_BLOCKLIGHT // Blocklicht uebernimmt die Farbe der Quelle (Seelaterne tuerkis usw.)
-#define COLORED_BL_STRENGTH 0.60 // [0.30 0.45 0.60 0.80 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
 #define VL_SAMPLES 16 // [8 12 16 24 32]
@@ -70,7 +68,7 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
     vec3 p = vec3(sclip.xy / f, sclip.z) * 0.5 + 0.5;
     p.xy += texelOff;
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
-    float bias = (0.0012 * f * f + 0.0003) * biasMul;
+    float bias = (0.0012 * f * f + 0.0005) * biasMul;
     // shadowtex1 = Schattenkarte ohne Glas/Wasser -> Transluzentes wirft keinen Vollschatten
     float diff = (p.z - bias) - texture2D(shadowtex1, p.xy).x;
     if (diff <= 0.0) return 1.0;
@@ -106,6 +104,8 @@ vec3 normalAt(vec2 uv, vec3 c) {
 
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
+    vec3 albedo0 = color.rgb;
+    float lmx0 = texture2D(colortex1, texcoord).x;
     // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
     float depth = texture2D(depthtex1, texcoord).x;
     // Tiefe MIT Transluzentem: erkennt Flaechen, die unter Wasser/Glas liegen
@@ -187,7 +187,7 @@ void main() {
             vec4 sv4 = gbufferProjectionInverse * sndc;
             vec3 diffV = sv4.xyz / sv4.w - viewPos;
             float dl = length(diffV);
-            ao += clamp(dot(nrm, diffV / max(dl, 0.0001)) - 0.15, 0.0, 1.0)
+            ao += clamp(dot(nrm, diffV / max(dl, 0.0001)) - 0.25, 0.0, 1.0)
                 * clamp(1.0 - dl / 0.7, 0.0, 1.0);
         }
         ao /= 8.0;
@@ -198,13 +198,12 @@ void main() {
     }
 #endif
 
-    // ============ Blocklicht: farbiges Licht & gerichtete Schatten ============
-    // Spiral-Suche findet die Lichtquelle: der hellste Punkt liefert die
-    // FARBE der Quelle (COLORED_BLOCKLIGHT), der lightmap-gewichtete
-    // SCHWERPUNKT ihre Position. Der Schwerpunkt ist raeumlich glatt und
-    // liegt bei einer Laterne in ihrer Mitte — alle Schatten einer Quelle
-    // zeigen dadurch in DIESELBE Richtung statt in alle.
-#if defined(BL_SHADOWS) || defined(COLORED_BLOCKLIGHT)
+    // ============ Blocklicht-Schatten (Lichtquellen-Suche) ============
+    // Spiral-Suche findet die Lichtquelle: der lightmap-gewichtete
+    // SCHWERPUNKT der hellen Region liefert ihre Position. Er ist raeumlich
+    // glatt und liegt bei einer Laterne in ihrer Mitte — alle Schatten
+    // einer Quelle zeigen dadurch in DIESELBE Richtung.
+#ifdef BL_SHADOWS
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
         if (torchC > 0.15) {
@@ -213,8 +212,6 @@ void main() {
             float bestLm = torchC;
             vec2 bestUV = texcoord;
             vec3 bestPos = viewPos;
-            vec3 tintSum = vec3(0.0);
-            float tintW = 0.0;
             vec3 sPos[16];
             float sW[16];
             for (int i = 0; i < 16; i++) {
@@ -235,39 +232,9 @@ void main() {
                 float w = lm * lm * lm;
                 sW[i] = w * w;
                 if (lm > bestLm) { bestLm = lm; bestUV = suv; bestPos = p; }
-#ifdef COLORED_BLOCKLIGHT
-                // Emissiv-Farben WEICH aufsummieren statt einen Gewinner zu
-                // kueren — harte Auswahl stempelt sonst Geisterkopien der
-                // Quellsilhouette an die festen Sample-Offsets
-                float em = smoothstep(0.80, 0.95, lm);
-                if (em > 0.001) {
-                    vec3 c0 = texture2D(colortex0, suv).rgb;
-                    float wg = em * (c0.r + c0.g + c0.b);
-                    tintSum += c0 * wg;
-                    tintW += wg;
-                }
-#endif
             }
             float conf = smoothstep(0.02, 0.10, bestLm - torchC);
 
-#ifdef COLORED_BLOCKLIGHT
-            // Beleuchtete Flaechen in der gemittelten Farbe der Quelle
-            // einfaerben (Seelaterne tuerkis, Redstone rot, Fackel warm)
-            if (tintW > 0.001) {
-                vec3 srcC = tintSum / tintW;
-                float srcMax = max(srcC.r, max(srcC.g, srcC.b));
-                if (srcMax > 0.05) {
-                    vec3 tintC = srcC / srcMax;
-                    // Abweichung von Weiss kraeftig verstaerken, damit sich
-                    // die Quellen klar voneinander unterscheiden
-                    tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 2.5, 0.0, 1.0);
-                    float tintAmt = COLORED_BL_STRENGTH * conf * smoothstep(0.25, 0.7, torchC);
-                    color.rgb *= mix(vec3(1.0), tintC, tintAmt);
-                }
-            }
-#endif
-
-#ifdef BL_SHADOWS
             if (conf > 0.01) {
                 vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
                 vec3 nrm = normalAt(texcoord, viewPos);
@@ -322,7 +289,6 @@ void main() {
                     color.rgb *= 1.0 - shadeAmt * 0.6;
                 }
             }
-#endif
         }
     }
 #endif
@@ -423,8 +389,14 @@ void main() {
     color.rgb += lightCol * (vis * phase * media * VL_STRENGTH) * rainW;
 #endif
 
-/* DRAWBUFFERS:2 */
-    // Ausgabe in colortex2: composite darf dann gefahrlos NACHBAR-Pixel aus
-    // colortex0 lesen (farbiges Blocklicht) — kein Read-Write-Konflikt
+    // Emissiv-Maske: eigene Pixel leuchtender Bloecke (hohes Blocklicht UND
+    // helle Textur). Wird in composite1/2 weichgezeichnet und in final als
+    // farbiges Blocklicht angewendet — dadurch glatte Farbkreise ohne
+    // Geisterkopien der Quellsilhouette.
+    float albMax = max(albedo0.r, max(albedo0.g, albedo0.b));
+    float emisW = smoothstep(0.82, 0.92, lmx0) * smoothstep(0.55, 0.85, albMax);
+
+/* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
+    gl_FragData[1] = vec4(albedo0 * emisW, emisW);
 }

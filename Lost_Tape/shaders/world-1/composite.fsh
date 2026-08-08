@@ -58,6 +58,8 @@ void main() {
 
     color.rgb = mix(color.rgb, fogC, fog);
 
-/* DRAWBUFFERS:2 */
+/* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
+    // kein farbiges Blocklicht im Nether: Leuchtfarben-Feld leeren
+    gl_FragData[1] = vec4(0.0);
 }

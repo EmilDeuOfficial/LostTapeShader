@@ -19,8 +19,12 @@
 #define SCANLINE_STRENGTH 0.25 // [0.10 0.15 0.25 0.35 0.50]
 #define FLICKER // subtiles analoges Helligkeitsflackern
 //#define VHS_WOBBLE
+#define COLORED_BLOCKLIGHT // Blocklicht uebernimmt die Farbe der Quelle (Seelaterne tuerkis usw.)
+#define COLORED_BL_STRENGTH 0.60 // [0.30 0.45 0.60 0.80 1.00]
 
+uniform sampler2D colortex1;
 uniform sampler2D colortex2;
+uniform sampler2D colortex3;
 uniform float viewWidth;
 uniform float viewHeight;
 uniform float frameTimeCounter;
@@ -56,6 +60,25 @@ void main() {
     col.r = texture2D(colortex2, uv - ca).r;
     col.g = texture2D(colortex2, uv).g;
     col.b = texture2D(colortex2, uv + ca).b;
+
+#ifdef COLORED_BLOCKLIGHT
+    // farbiges Blocklicht: das weichgezeichnete Leuchtfarben-Feld faerbt
+    // blocklicht-beleuchtete Flaechen in der Farbe ihrer Quelle
+    vec4 lf = texture2D(colortex3, uv);
+    if (lf.a > 0.02) {
+        float torchL = texture2D(colortex1, uv).x;
+        vec3 srcC = lf.rgb / lf.a;
+        float srcMax = max(srcC.r, max(srcC.g, srcC.b));
+        if (srcMax > 0.05) {
+            vec3 tintC = srcC / srcMax;
+            // Abweichung von Weiss verstaerken, damit sich die Quellen
+            // klar unterscheiden (Seelaterne tuerkis, Redstone rot ...)
+            tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 2.5, 0.0, 1.0);
+            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * min(lf.a * 2.5, 1.0);
+            col *= mix(vec3(1.0), tintC, amt);
+        }
+    }
+#endif
 
     // ausgeblichene Schwarztoene (VHS-Look)
     col = vec3(BLACK_LIFT) * vec3(0.80, 0.95, 0.85) + col * (1.0 - BLACK_LIFT);
