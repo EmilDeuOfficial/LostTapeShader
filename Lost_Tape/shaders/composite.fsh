@@ -232,15 +232,17 @@ void main() {
                         if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                         float diffZ = (-sp.z) - (-viewPosAt(suv).z);
                         float eps = 0.06 + 0.03 * (-sp.z);
-                        // je weiter weg das Objekt, desto blasser der Schatten
                         if (diffZ > eps && diffZ < eps + 1.2) {
-                            occ += 1.0 - h / 1.6;
+                            // Zentralstrahl zaehlt doppelt -> definierte Schatten
+                            occ += (r == 0) ? 2.0 : 1.0;
                             break;
                         }
                     }
                 }
-                // 5 Strahlen, aber schon ~3 Treffer ergeben vollen Schatten
-                occ = clamp(occ / 3.0, 0.0, 1.0);
+                // harte Kanten wie beim Sonnenlicht: Zentralstrahl allein
+                // ergibt schon vollen Schatten, Uebergaenge werden geschaerft
+                occ = clamp(occ / 2.0, 0.0, 1.0);
+                occ = smoothstep(0.15, 0.55, occ);
 
                 float shadeAmt = BL_SHADOW_STRENGTH * occ;
                 shadeAmt *= smoothstep(0.15, 0.5, torchC);
