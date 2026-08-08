@@ -28,6 +28,11 @@ void main() {
     vec4 viewPos4 = gbufferProjectionInverse * ndc;
     float dist = length(viewPos4.xyz / viewPos4.w);
 
+    // Das End hat kein Himmelslicht — Grundhelligkeit anheben, damit die
+    // Inseln und Tuerme nicht komplett im Schwarz verschwinden. Gilt nur
+    // hier im End-Composite, Overworld-Hoehlen bleiben stockdunkel.
+    if (depth < 1.0) color.rgb = color.rgb * 1.6 + 0.025;
+
     // fahler, kalter End-Dunst
     vec3 fogC = fogColor;
     float lum = dot(fogC, vec3(0.299, 0.587, 0.114));

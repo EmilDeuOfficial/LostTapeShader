@@ -14,13 +14,13 @@ varying vec2 texcoord;
 varying vec2 lmcoord;
 varying vec4 glcolor;
 varying float viewDist;
-varying float isWater;
+varying float blockId;
 
 void main() {
     texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     lmcoord  = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     glcolor  = gl_Color;
-    isWater  = (mc_Entity.x > 7.5 && mc_Entity.x < 8.5) ? 1.0 : 0.0;
+    blockId  = mc_Entity.x;
 
     vec4 vpos = gl_ModelViewMatrix * gl_Vertex;
     viewDist = length(vpos.xyz);
