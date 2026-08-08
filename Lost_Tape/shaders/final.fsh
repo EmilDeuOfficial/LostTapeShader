@@ -73,8 +73,10 @@ void main() {
             vec3 tintC = srcC / srcMax;
             // Abweichung von Weiss verstaerken, damit sich die Quellen
             // klar unterscheiden (Seelaterne tuerkis, Redstone rot ...)
-            tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 2.5, 0.0, 1.0);
-            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * min(lf.a * 2.5, 1.0);
+            tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 3.0, 0.0, 1.0);
+            // lf.a ist durch die Weichzeichnung stark verduennt -> kraeftig
+            // hochskalieren, sonst bleibt die Faerbung unsichtbar
+            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * min(lf.a * 12.0, 1.0);
             col *= mix(vec3(1.0), tintC, amt);
         }
     }

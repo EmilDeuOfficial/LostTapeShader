@@ -140,7 +140,11 @@ void main() {
 
             float sh = 0.0;
             if (faceLit > 0.001) {
-                vec3 sclip = toShadowClip(playerPos);
+                // Normal-Offset gegen Acne: den Abtastpunkt von der Flaeche
+                // abheben — wirkt auf sanften Haengen (Duenen!) viel besser
+                // als reiner Tiefen-Bias und verhindert die Wellenmuster
+                vec3 offPos = playerPos + (mat3(gbufferModelViewInverse) * normal) * 0.1;
+                vec3 sclip = toShadowClip(offPos);
                 float texel = 1.0 / float(shadowMapResolution);
 
 #if SHADOW_SOFT == 0
@@ -394,7 +398,7 @@ void main() {
     // farbiges Blocklicht angewendet — dadurch glatte Farbkreise ohne
     // Geisterkopien der Quellsilhouette.
     float albMax = max(albedo0.r, max(albedo0.g, albedo0.b));
-    float emisW = smoothstep(0.82, 0.92, lmx0) * smoothstep(0.55, 0.85, albMax);
+    float emisW = smoothstep(0.78, 0.88, lmx0) * smoothstep(0.50, 0.80, albMax);
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
