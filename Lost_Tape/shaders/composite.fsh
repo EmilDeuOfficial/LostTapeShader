@@ -279,14 +279,13 @@ void main() {
                         float eps = 0.07 + 0.03 * (-sp.z);
                         if (diffZ > eps && diffZ < eps + 0.5) {
                             // Plausibilitaet: der Verdecker muss ZWISCHEN Quelle
-                            // und Flaeche liegen — und LEUCHTENDE Pixel (der
-                            // Quellblock selbst) zaehlen grundsaetzlich nie
+                            // und Flaeche liegen. Die QUELLREGION (volles
+                            // Blocklicht UND nah am Lichtzentrum) zaehlt nie —
+                            // das erfasst auch dunkle Rahmen der Quellbloecke
                             float oLm = texture2D(colortex1, suv).x;
-                            vec3 oCol = texture2D(colortex0, suv).rgb;
-                            float oEmis = smoothstep(0.85, 0.93, oLm)
-                                        * smoothstep(0.85, 0.97, max(oCol.r, max(oCol.g, oCol.b)));
                             float oToL = distance(op, lightP);
-                            if (oEmis < 0.2 && oToL > 1.0 && oToL < dL - 0.2) { occ = 1.0; break; }
+                            bool isSource = oLm > 0.90 && oToL < 1.6;
+                            if (!isSource && oToL > 1.0 && oToL < dL - 0.2) { occ = 1.0; break; }
                         }
                     }
 
