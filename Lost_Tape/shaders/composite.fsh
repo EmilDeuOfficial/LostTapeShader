@@ -96,7 +96,10 @@ vec3 normalAt(vec2 uv, vec3 c) {
     vec3 d = viewPosAt(uv - vec2(0.0, px.y));
     vec3 dx = (abs(r.z - c.z) < abs(c.z - l.z)) ? (r - c) : (c - l);
     vec3 dy = (abs(u.z - c.z) < abs(c.z - d.z)) ? (u - c) : (c - d);
-    return normalize(cross(dx, dy));
+    vec3 n = cross(dx, dy);
+    // am Bildschirmrand koennen die Differenzen null werden -> kein NaN
+    if (dot(n, n) < 1.0e-12) return vec3(0.0, 0.0, 1.0);
+    return normalize(n);
 }
 
 void main() {
@@ -193,61 +196,65 @@ void main() {
     }
 #endif
 
-    // ============ Blocklicht-Schatten (Strahlenbuendel) ============
-    // Von jeder blocklicht-beleuchteten Flaeche (Boden, Wand UND Decke)
-    // werden 5 Strahlen getestet: entlang der Flaechennormale + 4x um
-    // 45 Grad geneigt. Objekte davor werfen Schatten auf die Flaeche.
-    // Die Richtungen haengen an der stabilen Geometrie-Normale, nicht am
-    // Licht-Gradienten -> keine Streifen-Artefakte.
+    // ============ Blocklicht-Schatten (Lichtquellen-Suche) ============
+    // Der hellste Blocklicht-Punkt der Umgebung wird per Spiral-Suche als
+    // Lichtposition geschaetzt; von jeder Flaeche wird Richtung Quelle
+    // gemarcht. Objekte und Entities dazwischen werfen harte, GERICHTETE
+    // Schatten von der Quelle weg — und der hellste Punkt (die Lichtquelle
+    // selbst) bekommt nie einen Schatten.
 #ifdef BL_SHADOWS
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
         if (torchC > 0.15) {
-            {
-                // robuste Flaechennormale + Tangentenbasis fuer die Neigungen
-                vec3 nrm = normalAt(texcoord, viewPos);
+            float aspect = viewWidth / viewHeight;
+            float searchR = clamp(3.0 * gbufferProjection[1][1] / max(dist, 1.0), 0.03, 0.40);
+            float bestLm = torchC;
+            vec2 bestUV = texcoord;
+            for (int i = 0; i < 16; i++) {
+                float a = float(i) * 2.399963;
+                float rr = searchR * (0.15 + 0.85 * float(i) / 15.0);
+                vec2 suv = texcoord + vec2(cos(a), sin(a) * aspect) * rr;
+                if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) continue;
+                float lm = texture2D(colortex1, suv).x;
+                if (lm > bestLm) { bestLm = lm; bestUV = suv; }
+            }
+
+            // nur mit klarer Richtung zur Quelle beschatten — dadurch ist
+            // die Quelle selbst automatisch schattenfrei
+            float conf = smoothstep(0.02, 0.10, bestLm - torchC);
+            if (conf > 0.01) {
                 vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
-                vec3 t1 = cross(nrm, upV);
-                if (length(t1) < 0.1) t1 = cross(nrm, mat3(gbufferModelView) * vec3(1.0, 0.0, 0.0));
-                t1 = normalize(t1);
-                vec3 t2 = normalize(cross(nrm, t1));
-
-                float occ = 0.0;
-                float j = bayer8(gl_FragCoord.xy + 37.0);
-
-                for (int r = 0; r < 5; r++) {
-                    vec3 rdir = nrm;
-                    if (r == 1) rdir = normalize(nrm + t1);
-                    else if (r == 2) rdir = normalize(nrm - t1);
-                    else if (r == 3) rdir = normalize(nrm + t2);
-                    else if (r == 4) rdir = normalize(nrm - t2);
-
-                    float jr = fract(j + float(r) * 0.618034);
-                    for (int i = 1; i <= 5; i++) {
-                        float h = (float(i) - jr) / 5.0 * 1.5 + 0.1;
-                        vec3 sp = viewPos + rdir * h;
+                vec3 nrm = normalAt(texcoord, viewPos);
+                // Quelle sitzt meist etwas ueber der hellsten Flaeche
+                vec3 lightP = viewPosAt(bestUV) + upV * 0.5;
+                vec3 toL = lightP - viewPos;
+                float dL = length(toL);
+                vec3 ldir = toL / max(dL, 0.001);
+                // nur wenn das Licht VOR der Flaeche liegt: der March steigt
+                // dann von der Tangentialebene weg und kann eine ebene Flaeche
+                // (z.B. eine von unten beleuchtete Decke) nie selbst verdecken
+                if (dL > 0.6 && dot(ldir, nrm) > 0.05) {
+                    // von der eigenen Flaeche abheben gegen Selbstverdeckung
+                    vec3 startP = viewPos + nrm * 0.12;
+                    float range = min(dL - 0.4, 5.0);
+                    float occ = 0.0;
+                    float j = bayer8(gl_FragCoord.xy + 37.0);
+                    for (int i = 1; i <= 8; i++) {
+                        vec3 sp = startP + ldir * ((float(i) - j) / 8.0 * range);
                         vec4 spc = gbufferProjection * vec4(sp, 1.0);
                         if (spc.w <= 0.0) break;
                         vec2 suv = spc.xy / spc.w * 0.5 + 0.5;
                         if (suv.x <= 0.0 || suv.x >= 1.0 || suv.y <= 0.0 || suv.y >= 1.0) break;
                         float diffZ = (-sp.z) - (-viewPosAt(suv).z);
-                        float eps = 0.06 + 0.03 * (-sp.z);
-                        if (diffZ > eps && diffZ < eps + 1.2) {
-                            // Zentralstrahl zaehlt doppelt -> definierte Schatten
-                            occ += (r == 0) ? 2.0 : 1.0;
-                            break;
-                        }
+                        float eps = 0.07 + 0.03 * (-sp.z);
+                        if (diffZ > eps && diffZ < eps + 1.0) { occ = 1.0; break; }
                     }
-                }
-                // harte Kanten wie beim Sonnenlicht: Zentralstrahl allein
-                // ergibt schon vollen Schatten, Uebergaenge werden geschaerft
-                occ = clamp(occ / 2.0, 0.0, 1.0);
-                occ = smoothstep(0.15, 0.55, occ);
 
-                float shadeAmt = BL_SHADOW_STRENGTH * occ;
-                shadeAmt *= smoothstep(0.15, 0.5, torchC);
-                shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
-                color.rgb *= 1.0 - shadeAmt * 0.6;
+                    float shadeAmt = BL_SHADOW_STRENGTH * occ * conf;
+                    shadeAmt *= smoothstep(0.15, 0.4, torchC);
+                    shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
+                    color.rgb *= 1.0 - shadeAmt * 0.6;
+                }
             }
         }
     }
@@ -327,8 +334,8 @@ void main() {
         float upness = smoothstep(0.0, 0.35, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         // unter Wasser: Horizont versinkt im Truebwasser, aber Sonne/Mond
-        // bleiben nach oben hin gedimmt sichtbar
-        if (isEyeInWater == 1) fog = mix(1.0, 0.6, upness);
+        // bleiben nach oben hin klar sichtbar
+        if (isEyeInWater == 1) fog = mix(1.0, 0.35, upness);
     } else {
         // Nebel beginnt erst ab FOG_START Bloecken (unter Wasser/Lava sofort)
         float fogDist = dist;

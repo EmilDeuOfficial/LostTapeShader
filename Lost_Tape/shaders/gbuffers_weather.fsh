@@ -55,9 +55,10 @@ void main() {
 
     color.rgb *= light;
 
-    // Regen/Schnee dunkler und dezenter
-    color.rgb *= 0.6;
-    color.a *= 0.85;
+    // Regen/Schnee hell und dezent-transparent, damit die harten
+    // Schnittkanten an Wasserflaechen und am Himmel kaum auffallen
+    color.rgb *= 0.8;
+    color.a *= 0.55;
 
 /* DRAWBUFFERS:0 */
     // kein Schreiben in colortex1: Regen wuerde sonst die Lichtdaten der
