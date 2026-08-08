@@ -11,13 +11,16 @@ uniform float viewHeight;
 varying vec2 texcoord;
 varying vec2 lmcoord;
 varying vec4 glcolor;
+varying float viewDist;
 
 void main() {
     texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
     lmcoord  = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
     glcolor  = gl_Color;
 
-    vec4 clip = gl_ProjectionMatrix * (gl_ModelViewMatrix * gl_Vertex);
+    vec4 vpos = gl_ModelViewMatrix * gl_Vertex;
+    viewDist = length(vpos.xyz);
+    vec4 clip = gl_ProjectionMatrix * vpos;
 
 #ifdef VERTEX_SNAP
     if (clip.w > 0.0) {
