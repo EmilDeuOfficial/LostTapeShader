@@ -28,10 +28,10 @@ void main() {
     vec4 viewPos4 = gbufferProjectionInverse * ndc;
     float dist = length(viewPos4.xyz / viewPos4.w);
 
-    // Das End hat kein Himmelslicht — Grundhelligkeit anheben, damit die
-    // Inseln und Tuerme nicht komplett im Schwarz verschwinden. Gilt nur
-    // hier im End-Composite, Overworld-Hoehlen bleiben stockdunkel.
-    if (depth < 1.0) color.rgb = color.rgb * 1.6 + 0.025;
+    // Das End hat kein Himmelslicht — Grundhelligkeit deutlich anheben,
+    // damit Inseln und Tuerme nicht komplett im Schwarz verschwinden.
+    // Gilt nur hier im End-Composite, Overworld-Hoehlen bleiben stockdunkel.
+    if (depth < 1.0) color.rgb = color.rgb * 2.2 + 0.055;
 
     // fahler, kalter End-Dunst
     vec3 fogC = fogColor;
@@ -39,6 +39,9 @@ void main() {
     fogC = mix(fogC, vec3(lum), 0.6);
     fogC *= 0.80;
     fogC *= vec3(0.95, 0.92, 1.05);
+    // der End-Nebel darf nie schwarz sein: fahler violett-grauer Dunst als
+    // Untergrenze, sonst schluckt die Nebelwand die Ferne komplett
+    fogC = max(fogC, vec3(0.10, 0.09, 0.14));
 
     float density = 0.010 * FOG_DENSITY;
     density *= 1.0 + blindness * 4.0;
