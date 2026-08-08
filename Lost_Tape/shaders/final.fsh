@@ -67,7 +67,7 @@ void main() {
     // blocklicht-beleuchtete Flaechen in der Farbe ihrer Quelle
     vec4 lf = texture2D(colortex3, uv);
     // nie auf den Himmel anwenden (dessen Lichtdaten sind Loeschfarbe Weiss)
-    if (lf.a > 0.02 && texture2D(depthtex1, uv).x < 1.0) {
+    if (lf.a > 0.003 && texture2D(depthtex1, uv).x < 1.0) {
         float torchL = texture2D(colortex1, uv).x;
         vec3 srcC = lf.rgb / lf.a;
         float srcMax = max(srcC.r, max(srcC.g, srcC.b));
@@ -76,9 +76,10 @@ void main() {
             // Abweichung von Weiss verstaerken, damit sich die Quellen
             // klar unterscheiden (Seelaterne tuerkis, Redstone rot ...)
             tintC = clamp(vec3(1.0) + (tintC - vec3(1.0)) * 3.0, 0.0, 1.0);
-            // lf.a ist durch die Weichzeichnung stark verduennt -> kraeftig
-            // hochskalieren, sonst bleibt die Faerbung unsichtbar
-            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * min(lf.a * 12.0, 1.0);
+            // Schwellwert statt Skalierung: wo ueberhaupt ein Leuchtfeld
+            // ankommt, gilt die volle Quellfarbe — die FORM des Farbkreises
+            // bestimmt das Fackellicht (torchL), nicht der Blur-Radius
+            float amt = COLORED_BL_STRENGTH * smoothstep(0.3, 0.8, torchL) * smoothstep(0.003, 0.015, lf.a);
             col *= mix(vec3(1.0), tintC, amt);
         }
     }
