@@ -78,11 +78,11 @@ void main() {
             // das Hand-Licht benutzt — der platzierte Block leuchtet dann
             // genauso blau/rot wie das gehaltene Item
             // Klassen wie beim Hand-Licht: BLAU nur Seelaterne/Soul-Quellen,
-            // ROT fuer Redstone, WEISS fuer neutrale Quellen, Rest GELB/warm
+            // ROT fuer Redstone — ALLES andere bleibt gelb/warm. (Eine
+            // Weiss-Klasse wuerde Fackel & Laterne stehlen, weil deren
+            // Texturen nach dem Herausrechnen des Warmtons neutral wirken.)
             vec3 tintC = vec3(1.00, 0.82, 0.60);                                       // gelb/warm (Standard)
-            float dev = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-            if (dev < 0.08) tintC = vec3(1.00, 1.00, 1.00);                                   // weiss (End Rod & Co.)
-            else if (c.b > c.r + 0.08 && c.g > c.r) tintC = vec3(0.55, 0.90, 1.00);           // blau (Seelaterne, Soul)
+            if (c.b > c.r + 0.08 && c.g > c.r) tintC = vec3(0.55, 0.90, 1.00);                // blau (Seelaterne, Soul)
             else if (c.r > c.g + 0.25 && c.r > c.b + 0.30) tintC = vec3(1.00, 0.35, 0.25);    // rot (Redstone)
             // relativ zum warmen Vanilla-Blocklicht anwenden: warme Quellen
             // bleiben wie gehabt, kalte drehen den Pool wirklich auf blau

@@ -279,13 +279,14 @@ void main() {
                         float eps = 0.07 + 0.03 * (-sp.z);
                         if (diffZ > eps && diffZ < eps + 0.5) {
                             // Plausibilitaet: der Verdecker muss ZWISCHEN Quelle
-                            // und Flaeche liegen — nicht der Quellblock selbst
-                            // (< 0.9) und kein Vordergrund-Objekt, das weiter
-                            // von der Quelle weg ist als die Flaeche (Geister)
+                            // und Flaeche liegen — und LEUCHTENDE Pixel (der
+                            // Quellblock selbst) zaehlen grundsaetzlich nie
+                            float oLm = texture2D(colortex1, suv).x;
+                            vec3 oCol = texture2D(colortex0, suv).rgb;
+                            float oEmis = smoothstep(0.85, 0.93, oLm)
+                                        * smoothstep(0.85, 0.97, max(oCol.r, max(oCol.g, oCol.b)));
                             float oToL = distance(op, lightP);
-                            // 1.25: die Oberflaeche des Quellblocks reicht bis
-                            // ~1.1 vom Zentrum — darunter nur Geisterbilder
-                            if (oToL > 1.25 && oToL < dL - 0.2) { occ = 1.0; break; }
+                            if (oEmis < 0.2 && oToL > 1.0 && oToL < dL - 0.2) { occ = 1.0; break; }
                         }
                     }
 

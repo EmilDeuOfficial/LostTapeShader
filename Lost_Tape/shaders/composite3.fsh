@@ -18,7 +18,7 @@ void main() {
     float wsum = 0.0;
     for (int i = -6; i <= 6; i++) {
         float w = 7.0 - abs(float(i));
-        vec2 uv = texcoord + vec2((float(i) + j) * 56.0 / viewWidth, 0.0);
+        vec2 uv = texcoord + vec2((float(i) + j) * 40.0 / viewWidth, 0.0);
         sum += texture2D(colortex3, uv) * w;
         wsum += w;
     }
