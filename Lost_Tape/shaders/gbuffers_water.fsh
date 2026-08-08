@@ -70,9 +70,18 @@ void main() {
         color.a = min(color.a * 2.2, 0.97);
         color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
     } else {
-        // gefaerbtes Glas & Co.: Saettigung leicht vorverstaerken — sonst
-        // drainiert das Grading die Glasfarben komplett (Vanilla-Vergleich)
-        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.25), 0.0, 1.0);
+        // Fallback OHNE Block-ID (die greift nicht auf jedem Loader):
+        // das Portal an seiner stark violetten Textur erkennen —
+        // rot & blau deutlich ueber gruen
+        bool looksPortal = color.b > color.g * 1.6 && color.r > color.g * 1.15 && color.b > 0.12;
+        if (looksPortal) {
+            color.a = min(color.a * 2.2, 0.97);
+            color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
+        } else {
+            // gefaerbtes Glas & Co.: Saettigung leicht vorverstaerken — sonst
+            // drainiert das Grading die Glasfarben komplett
+            color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.25), 0.0, 1.0);
+        }
     }
 
 /* DRAWBUFFERS:0 */
