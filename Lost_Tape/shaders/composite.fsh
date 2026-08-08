@@ -15,7 +15,7 @@
 #define SHADOW_FADE_DIST 24.0 // [8.0 12.0 16.0 24.0 32.0 48.0 64.0]
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
-#define BL_SHADOWS // Fackel-Schatten: Objekte werfen Schatten auf Boeden darunter
+#define BL_SHADOWS // Blocklicht-Schatten: Objekte beschatten fackelbeleuchtete Flaechen
 #define BL_SHADOW_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
 #define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
@@ -193,33 +193,34 @@ void main() {
     }
 #endif
 
-    // ============ Fackel-Schatten (Strahlenbuendel) ============
-    // Von jeder fackelbeleuchteten Bodenflaeche werden 5 Strahlen getestet:
-    // senkrecht nach oben + 4x um 45 Grad seitlich geneigt (N/O/S/W).
-    // Objekte ueber UND neben der Flaeche werfen so Schatten. Alle
-    // Richtungen sind konstant -> keine Streifen wie beim Gradienten-Ansatz.
+    // ============ Blocklicht-Schatten (Strahlenbuendel) ============
+    // Von jeder blocklicht-beleuchteten Flaeche (Boden, Wand UND Decke)
+    // werden 5 Strahlen getestet: entlang der Flaechennormale + 4x um
+    // 45 Grad geneigt. Objekte davor werfen Schatten auf die Flaeche.
+    // Die Richtungen haengen an der stabilen Geometrie-Normale, nicht am
+    // Licht-Gradienten -> keine Streifen-Artefakte.
 #ifdef BL_SHADOWS
     if (depth < 1.0 && dist < 32.0) {
         float torchC = texture2D(colortex1, texcoord).x;
         if (torchC > 0.15) {
-            vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
-            vec3 worldN = normalize(mat3(gbufferModelViewInverse) * nrm);
-            float floorW = smoothstep(0.55, 0.80, worldN.y);
-
-            if (floorW > 0.01) {
+            {
+                // robuste Flaechennormale + Tangentenbasis fuer die Neigungen
+                vec3 nrm = normalAt(texcoord, viewPos);
                 vec3 upV = mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0);
-                vec3 eastV = mat3(gbufferModelView) * vec3(1.0, 0.0, 0.0);
-                vec3 southV = mat3(gbufferModelView) * vec3(0.0, 0.0, 1.0);
+                vec3 t1 = cross(nrm, upV);
+                if (length(t1) < 0.1) t1 = cross(nrm, mat3(gbufferModelView) * vec3(1.0, 0.0, 0.0));
+                t1 = normalize(t1);
+                vec3 t2 = normalize(cross(nrm, t1));
 
                 float occ = 0.0;
                 float j = bayer8(gl_FragCoord.xy + 37.0);
 
                 for (int r = 0; r < 5; r++) {
-                    vec3 rdir = upV;
-                    if (r == 1) rdir = normalize(upV + eastV);
-                    else if (r == 2) rdir = normalize(upV - eastV);
-                    else if (r == 3) rdir = normalize(upV + southV);
-                    else if (r == 4) rdir = normalize(upV - southV);
+                    vec3 rdir = nrm;
+                    if (r == 1) rdir = normalize(nrm + t1);
+                    else if (r == 2) rdir = normalize(nrm - t1);
+                    else if (r == 3) rdir = normalize(nrm + t2);
+                    else if (r == 4) rdir = normalize(nrm - t2);
 
                     float jr = fract(j + float(r) * 0.618034);
                     for (int i = 1; i <= 5; i++) {
@@ -241,7 +242,7 @@ void main() {
                 // 5 Strahlen, aber schon ~3 Treffer ergeben vollen Schatten
                 occ = clamp(occ / 3.0, 0.0, 1.0);
 
-                float shadeAmt = BL_SHADOW_STRENGTH * occ * floorW;
+                float shadeAmt = BL_SHADOW_STRENGTH * occ;
                 shadeAmt *= smoothstep(0.15, 0.5, torchC);
                 shadeAmt *= 1.0 - smoothstep(24.0, 32.0, dist);
                 color.rgb *= 1.0 - shadeAmt * 0.6;
