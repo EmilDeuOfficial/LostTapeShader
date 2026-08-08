@@ -59,7 +59,8 @@ void main() {
     color.rgb *= 0.6;
     color.a *= 0.85;
 
-/* DRAWBUFFERS:01 */
+/* DRAWBUFFERS:0 */
+    // kein Schreiben in colortex1: Regen wuerde sonst die Lichtdaten der
+    // Flaechen dahinter ueberschreiben (tropfenfoermige Schatten-Artefakte)
     gl_FragData[0] = color;
-    gl_FragData[1] = vec4(lmcoord, 0.0, 1.0);
 }

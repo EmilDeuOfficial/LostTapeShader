@@ -326,7 +326,9 @@ void main() {
         // damit der Look unabhaengig von der Renderdistanz gleich bleibt
         float upness = smoothstep(0.0, 0.35, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
-        if (isEyeInWater == 1) fog = 1.0;
+        // unter Wasser: Horizont versinkt im Truebwasser, aber Sonne/Mond
+        // bleiben nach oben hin gedimmt sichtbar
+        if (isEyeInWater == 1) fog = mix(1.0, 0.6, upness);
     } else {
         // Nebel beginnt erst ab FOG_START Bloecken (unter Wasser/Lava sofort)
         float fogDist = dist;
