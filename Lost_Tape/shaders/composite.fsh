@@ -121,16 +121,11 @@ void main() {
     bool isEnd    = fogColor.r < 0.20 && fogColor.b < 0.30
                  && fogColor.r - fogColor.g > 0.01 && fogColor.b - fogColor.g > 0.01;
 
-    // Das End hat kein Himmelslicht — Grundhelligkeit anheben, damit die
-    // Inseln und Tuerme nicht komplett im Schwarz verschwinden. Der Lift
-    // ist helligkeitsabhaengig: Dunkles wird angehoben, bereits helle
-    // Bereiche (Fackel-/Kerzenlicht) bleiben unangetastet und brennen
-    // nicht mehr aus. Overworld-Hoehlen sind nie betroffen.
-    if (isEnd && depth < 1.0) {
-        float endLum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-        float boost = mix(2.2, 1.0, smoothstep(0.06, 0.45, endLum));
-        color.rgb = color.rgb * boost + 0.055 * (1.0 - smoothstep(0.05, 0.35, endLum));
-    }
+    // Das End hat kein Himmelslicht — Grundhelligkeit einfach linear
+    // anheben, damit Inseln und Tuerme nicht im Schwarz verschwinden.
+    // Moderat gewaehlt, damit Fackel-/Kerzenlicht nicht uebersteuert.
+    // Overworld-Hoehlen sind nie betroffen.
+    if (isEnd && depth < 1.0) color.rgb = color.rgb * 1.4 + 0.05;
 
     // ============ Schatten ============
     // im Nether/End gibt es keine Sonne — Schattenkarte dort ueberspringen
