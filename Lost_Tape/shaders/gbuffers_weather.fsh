@@ -60,8 +60,11 @@ void main() {
     color.rgb *= 0.8;
     color.a *= 0.55;
 
-/* DRAWBUFFERS:0 */
+/* DRAWBUFFERS:03 */
     // kein Schreiben in colortex1: Regen wuerde sonst die Lichtdaten der
     // Flaechen dahinter ueberschreiben (tropfenfoermige Schatten-Artefakte)
     gl_FragData[0] = color;
+    // Regen gehoert zur transluzenten Schicht (colortex3): sonst wird er
+    // vor Wasser/Glas als "Hintergrund" mit dem Fern-Nebel verrechnet
+    gl_FragData[1] = vec4(color.rgb, color.a);
 }

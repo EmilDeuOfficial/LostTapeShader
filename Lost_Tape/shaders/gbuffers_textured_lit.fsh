@@ -55,7 +55,9 @@ void main() {
 
     color.rgb *= light;
 
-/* DRAWBUFFERS:01 */
+/* DRAWBUFFERS:013 */
     gl_FragData[0] = color;
     gl_FragData[1] = vec4(lmcoord, 0.0, 1.0);
+    // beleuchtete Partikel in die transluzente Schicht aufnehmen (s. gbuffers_textured)
+    gl_FragData[2] = vec4(color.rgb, color.a);
 }

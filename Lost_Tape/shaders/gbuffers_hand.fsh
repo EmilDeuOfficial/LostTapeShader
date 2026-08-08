@@ -59,9 +59,14 @@ void main() {
 
 /* DRAWBUFFERS:013 */
     gl_FragData[0] = color;
-    gl_FragData[1] = vec4(lmcoord, 0.0, 1.0);
-    // Deckkraft nach colortex3: transluzente Bloecke in der Hand (Eis,
-    // Buntglas) sollen vor dem Himmel nicht im Horizontnebel verschwinden.
-    // Fuer die opake Hand wirkungslos (depthT == depth in composite).
-    gl_FragData[2] = vec4(0.0, 0.0, 0.0, color.a);
+    // Alpha steuert das Blending: transluzente Bloecke in der Hand (Eis,
+    // Buntglas) duerfen ihre Hand-Lightmap NICHT ueber die Lichtdaten des
+    // Gelaendes dahinter schmieren (falsche Schatten-/SSAO-Staerke dort) —
+    // Alpha 0 laesst colortex1 beim Blending unangetastet
+    gl_FragData[1] = vec4(lmcoord, 0.0, step(0.9, color.a));
+    // Schicht-Farbe + Deckkraft nach colortex3: transluzente Bloecke in
+    // der Hand (Eis, Buntglas) sollen vor dem Himmel nicht im Horizont-
+    // nebel verschwinden. Fuer die opake Hand wirkungslos (depthT ==
+    // depth in composite).
+    gl_FragData[2] = vec4(color.rgb, color.a);
 }

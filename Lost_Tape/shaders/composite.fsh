@@ -120,7 +120,11 @@ void main() {
     // anheben, damit Inseln und Tuerme nicht im Schwarz verschwinden.
     // Moderat gewaehlt, damit Fackel-/Kerzenlicht nicht uebersteuert.
     // Overworld-Hoehlen sind nie betroffen.
-    if (isEnd && depth < 1.0) color.rgb = color.rgb * 1.4 + 0.05;
+    // shadeMul sammelt alle Abdunklungen/Aufhellungen dieses Pixels
+    // (End-Lift, Schatten, SSAO) — der Nebel-Split am Ende braucht sie,
+    // um die transluzente Schicht gleich zu behandeln wie den Pixel
+    float shadeMul = 1.0;
+    if (isEnd && depth < 1.0) { color.rgb = color.rgb * 1.4 + 0.05; shadeMul *= 1.4; }
 
     // ============ Schatten ============
     // im Nether/End gibt es keine Sonne — Schattenkarte dort ueberspringen
@@ -182,7 +186,9 @@ void main() {
             // Schatten zur Distanzgrenze hin ausblenden
             float fade = smoothstep(shadowDistance * 0.70, shadowDistance * 0.95, dist);
             sh = mix(sh, 1.0, fade);
-            color.rgb *= mix(1.0 - shStr, 1.0, sh);
+            float shadeF = mix(1.0 - shStr, 1.0, sh);
+            color.rgb *= shadeF;
+            shadeMul *= shadeF;
         }
     }
 #endif
@@ -214,7 +220,9 @@ void main() {
 
         float aoStr = SSAO_STRENGTH * (0.6 + 0.6 * smoothstep(0.2, 0.8, torchAO));
         float distFade = 1.0 - smoothstep(32.0, 48.0, dist);
-        color.rgb *= 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
+        float aoF = 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
+        color.rgb *= aoF;
+        shadeMul *= aoF;
     }
 #endif
 
@@ -313,14 +321,15 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
-    // Transluzente Flaechen bekommen ihren Nebel anteilig auf ihre EIGENE
-    // Distanz bezogen (Deckkraft-Anteil aus colortex3.a) — wie in Vanilla:
-    // - Glas vor dem Himmel verschwindet nicht mehr im Horizontnebel
-    //   (vorher ersetzte fog=1.0 dort den ganzen Pixel samt Glas)
-    // - das fast deckende Portal bleicht nicht im Fernnebel aus
-    // - der Hintergrund HINTER dem Glas behaelt seinen Nebel (Anteil 1-a)
-    float transCov = texture2D(colortex3, texcoord).a;
-    if (transCov > 0.002 && depthT < depth) {
+    // Transluzente Flaechen: Nebel pro SCHICHT korrekt zusammensetzen.
+    // colortex3 traegt die vor-multiplizierte Farbe (rgb) und Deckkraft (a)
+    // der transluzenten Schicht (Glas, Wasser, Portal, Hand). Der
+    // Hintergrund-Anteil bekommt den VOLLEN Szenen-Nebel — dadurch faded
+    // die Ferne hinter Glas genauso weich wie ohne Glas (kein harter Saum
+    // am Horizont) — die Schicht selbst nur den Nebel ihrer eigenen
+    // Distanz, damit Glas vor dem Himmel nicht im Horizontnebel verschwindet
+    vec4 trans = texture2D(colortex3, texcoord);
+    if (trans.a > 0.002 && depthT < depth) {
         vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
         vec4 vpT = gbufferProjectionInverse * ndcT;
         float distT = length(vpT.xyz / vpT.w);
@@ -328,10 +337,15 @@ void main() {
         if (isEyeInWater == 0) fogDT = max(distT - FOG_START, 0.0);
         float fogT = 1.0 - exp(-fogDT * density);
         fogT = max(fogT, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, distT));
-        fog = mix(fog, min(fog, fogT), transCov);
+        fogT = min(fogT, fog);
+        // Schicht-Farbe mit denselben Abdunklungen (Schatten/SSAO) wie der Pixel
+        vec3 layerC = trans.rgb * shadeMul;
+        vec3 bgPart = max(color.rgb - layerC, vec3(0.0));
+        color.rgb = layerC * (1.0 - fogT) + bgPart * (1.0 - fog)
+                  + fogC * (trans.a * fogT + (1.0 - trans.a) * fog);
+    } else {
+        color.rgb = mix(color.rgb, fogC, fog);
     }
-
-    color.rgb = mix(color.rgb, fogC, fog);
 
 #ifdef LIGHT_SHAFTS
     // helle Strahlen in beleuchteten Nebelsaeulen

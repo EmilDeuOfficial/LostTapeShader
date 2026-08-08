@@ -79,8 +79,9 @@ void main() {
 /* DRAWBUFFERS:03 */
     // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten
     gl_FragData[0] = color;
-    // colortex3 fuer composite: Alpha = Deckkraft der transluzenten
-    // Flaeche — der Nebel wird anteilig auf DEREN Distanz bezogen,
-    // damit Glas vor dem Himmel nicht im Horizontnebel verschwindet
-    gl_FragData[1] = vec4(0.0, 0.0, 0.0, color.a);
+    // colortex3 fuer composite: Farbe + Deckkraft der transluzenten
+    // Schicht (Blending macht rgb vor-multipliziert, Alpha akkumuliert
+    // als Deckung — siehe blend.gbuffers_water.colortex3). composite
+    // benebelt damit Schicht und Hintergrund getrennt.
+    gl_FragData[1] = vec4(color.rgb, color.a);
 }
