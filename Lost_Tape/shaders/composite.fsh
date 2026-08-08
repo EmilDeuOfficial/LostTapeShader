@@ -416,8 +416,8 @@ void main() {
 
 /* DRAWBUFFERS:23 */
     gl_FragData[0] = color;
-    // das warme Vanilla-Blocklicht herausrechnen, damit die ECHTE Texturfarbe
-    // der Quelle gespeichert wird (Seelaterne cyan statt warm verfaerbt);
-    // *0.6 als Headroom gegen Kanal-Clipping im 8-Bit-Buffer
-    gl_FragData[1] = vec4(albedo0 / vec3(1.00, 0.84, 0.66) * 0.6 * emisW, emisW);
+    // ROHE Farbe speichern — das Herausrechnen des Warmtons hatte weisse
+    // Pixel (Flammenkerne!) rechnerisch blau gemacht; die Klassifizierung
+    // in final ist stattdessen auf die Rohwerte kalibriert
+    gl_FragData[1] = vec4(albedo0 * emisW, emisW);
 }
