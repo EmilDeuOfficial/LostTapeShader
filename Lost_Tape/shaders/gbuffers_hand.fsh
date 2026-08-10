@@ -64,9 +64,11 @@ void main() {
     // Gelaendes dahinter schmieren (falsche Schatten-/SSAO-Staerke dort) —
     // Alpha 0 laesst colortex1 beim Blending unangetastet
     gl_FragData[1] = vec4(lmcoord, 0.0, step(0.9, color.a));
-    // Schicht-Farbe + Deckkraft nach colortex3: transluzente Bloecke in
-    // der Hand (Eis, Buntglas) sollen vor dem Himmel nicht im Horizont-
-    // nebel verschwinden. Fuer die opake Hand wirkungslos (depthT ==
-    // depth in composite).
-    gl_FragData[2] = vec4(color.rgb, color.a);
+    // NUR transluzente Fragmente (gehaltenes Eis/Buntglas) in die Schicht —
+    // sie sollen vor dem Himmel nicht im Horizontnebel verschwinden. Der
+    // opake Arm bleibt draussen (Deckung 0), sonst wuerde er die Schicht-
+    // daten dahinter ueberschreiben. Selbst-Nebel unnoetig: die Hand ist
+    // immer <2 Bloecke entfernt.
+    float layerA = color.a < 0.9 ? color.a : 0.0;
+    gl_FragData[2] = vec4(color.rgb, layerA);
 }

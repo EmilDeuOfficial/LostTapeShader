@@ -321,28 +321,19 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
-    // Transluzente Flaechen: Nebel pro SCHICHT korrekt zusammensetzen.
-    // colortex3 traegt die vor-multiplizierte Farbe (rgb) und Deckkraft (a)
-    // der transluzenten Schicht (Glas, Wasser, Portal, Hand). Der
-    // Hintergrund-Anteil bekommt den VOLLEN Szenen-Nebel — dadurch faded
-    // die Ferne hinter Glas genauso weich wie ohne Glas (kein harter Saum
-    // am Horizont) — die Schicht selbst nur den Nebel ihrer eigenen
-    // Distanz, damit Glas vor dem Himmel nicht im Horizontnebel verschwindet
+    // Transluzente Schichten (Glas, Wasser, Portal, Regen, Partikel) haben
+    // sich beim Zeichnen bereits SELBST benebelt — jede an ihrer eigenen
+    // Distanz (layerFog in den gbuffers-Programmen, Vanilla-Modell). Hier
+    // bekommt nur noch der Hintergrund-Anteil den Szenen-Nebel. So faded
+    // die Ferne hinter Glas exakt wie daneben, und auch ein Ozean hinter
+    // Glas laeuft weich in den Horizont (fernes Wasser traegt seinen
+    // vollen eigenen Nebel statt den Nah-Nebel des Glases zu erben).
     vec4 trans = texture2D(colortex3, texcoord);
     if (trans.a > 0.002 && depthT < depth) {
-        vec4 ndcT = vec4(texcoord * 2.0 - 1.0, depthT * 2.0 - 1.0, 1.0);
-        vec4 vpT = gbufferProjectionInverse * ndcT;
-        float distT = length(vpT.xyz / vpT.w);
-        float fogDT = distT;
-        if (isEyeInWater == 0) fogDT = max(distT - FOG_START, 0.0);
-        float fogT = 1.0 - exp(-fogDT * density);
-        fogT = max(fogT, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, distT));
-        fogT = min(fogT, fog);
         // Schicht-Farbe mit denselben Abdunklungen (Schatten/SSAO) wie der Pixel
         vec3 layerC = trans.rgb * shadeMul;
         vec3 bgPart = max(color.rgb - layerC, vec3(0.0));
-        color.rgb = layerC * (1.0 - fogT) + bgPart * (1.0 - fog)
-                  + fogC * (trans.a * fogT + (1.0 - trans.a) * fog);
+        color.rgb = layerC + bgPart * (1.0 - fog) + fogC * ((1.0 - trans.a) * fog);
     } else {
         color.rgb = mix(color.rgb, fogC, fog);
     }

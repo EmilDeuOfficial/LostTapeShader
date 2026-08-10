@@ -60,6 +60,9 @@ void main() {
     color.rgb *= 0.8;
     color.a *= 0.55;
 
+    // KEIN Selbst-Nebel: Regen faellt immer nah am Spieler (<15 Bloecke),
+    // sein eigener Nebel-Anteil waere ohnehin vernachlaessigbar
+
 /* DRAWBUFFERS:03 */
     // kein Schreiben in colortex1: Regen wuerde sonst die Lichtdaten der
     // Flaechen dahinter ueberschreiben (tropfenfoermige Schatten-Artefakte)
