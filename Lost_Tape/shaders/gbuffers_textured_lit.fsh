@@ -56,6 +56,7 @@ vec3 layerFog(vec3 col, float distV) {
     float fogA = 1.0 - exp(-fogD * density);
     float wallEnd = min(FOG_LIMIT, far * 0.85);
     fogA = max(fogA, smoothstep(wallEnd * 0.2, wallEnd, distV));
+    fogA = min(fogA / 0.97, 1.0);
     return mix(col, fc, fogA);
 }
 

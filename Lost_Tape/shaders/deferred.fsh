@@ -328,7 +328,10 @@ void main() {
         // KOMPLETT in Nebelfarbe (dicke Nebelbank) — voll vernebelte
         // Huegel, die ueber die Augenhoehe ragen, haetten sonst eine
         // sichtbare Kontur gegen den frueher aufklarenden Himmel
-        float upness = smoothstep(0.22, 0.55, normalize(playerPos).y);
+        // breiter Verlauf: der Uebergang von der Nebelbank zum klaren
+        // Himmel ist so flach, dass seine Ansatzkante nicht als Bogen
+        // lesbar ist (die zweite moegliche Quelle der Horizont-Kontur)
+        float upness = smoothstep(0.25, 0.75, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         // unter Wasser: Horizont versinkt im Truebwasser; nach oben derselbe
         // Dunst wie ueber Wasser, damit die Sonne in beiden Faellen gleich wirkt
@@ -342,6 +345,12 @@ void main() {
         // wallEnd — der klassische v1.4-Look
         fog = max(fog, smoothstep(wallEnd * 0.2, wallEnd, dist));
     }
+
+    // HARTE GARANTIE gegen Rest-Silhouetten: alles ab 97% Nebel wird auf
+    // exakt 100% geklemmt. Gelaende tief in der Wand ist damit BITGLEICH
+    // mit dem Himmel dahinter — kein Chunk-Rand, keine Geisterhuegel,
+    // aus keiner Hoehe. Unterhalb von 97% aendert sich praktisch nichts.
+    fog = min(fog / 0.97, 1.0);
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
     // NICHT gezeichnet: sie mischen sich anschliessend ueber diese fertig
