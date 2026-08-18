@@ -9,7 +9,7 @@
 #define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 #define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
 #define SKY_FOG 0.75 // [0.00 0.20 0.40 0.60 0.75 0.90 1.00]
-#define FOG_LIMIT 128.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
+#define FOG_LIMIT 160.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
 #define FOG_BREATHING // langsames An- und Abschwellen des Nebels
 
 #define SHADOWS // Sonnen- und Mondschatten
@@ -35,7 +35,6 @@ uniform sampler2D shadowtex1;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelViewInverse;
-uniform vec3 cameraPosition;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform vec3 shadowLightPosition;
@@ -273,7 +272,7 @@ void main() {
         // duerfen den Strahl nicht mehr verkuerzen, sonst springen vis und
         // media exakt an ihrer Silhouette gegenueber dem Himmel daneben
         // und pausen die Kontur als Geisterhuegel in die Wand
-        float wallCap = wallEnd * 0.7;
+        float wallCap = wallEnd * 0.85;
         float rayLen = min(min(dist, shadowDistance), wallCap);
         rayLen = mix(rayLen, wallCap, smoothstep(wallEnd * 0.4, wallEnd * 0.7, dist));
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
@@ -337,23 +336,14 @@ void main() {
         float fogDist = dist;
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
-        // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel — aber nie
-        // spaeter als 85% der Renderdistanz (far), sonst schliesst sich
-        // die Wand erst EXAKT an der Chunk-Kante und die bleibt sichtbar.
-        // Volle Deckung schon bei 70% der Wanddistanz: hohe Baeume am
-        // Rand der geladenen Welt ragen mit den Spitzen in die letzte
-        // Rampenzone und stuenden sonst mit 1-10% Restsilhouette direkt
-        // vor der leeren Blaue hinter der Welt (Vogelperspektive)
-        fog = max(fog, smoothstep(wallEnd * 0.1, wallEnd * 0.7, dist));
-
-        // Vogelperspektive: von OBEN laufen flache Sichtlinien ueber den
-        // Weltrand in die Leere — jedes Gelaende in der letzten Rampenzone
-        // silhouettiert sich dort, egal wo die Wand endet. Deshalb zieht
-        // sich die Wand fuer FLACHE Blickwinkel frueher zu, sobald die
-        // Kamera deutlich ueber Bodenniveau ist. Am Boden: keine Wirkung.
-        float aboveF = smoothstep(96.0, 140.0, cameraPosition.y);
-        float flatF = 1.0 - smoothstep(0.15, 0.40, abs(playerPos.y) / max(dist, 0.001));
-        fog = max(fog, smoothstep(wallEnd * 0.15, wallEnd * 0.45, dist) * aboveF * flatF);
+        // Nebelwand: STEILER Vorhang statt langer Rampe — bis ~55% der
+        // Wanddistanz bleibt die Sicht frei, dann schliesst sich die Wand
+        // zuegig und ist bei 85% KOMPLETT dicht. Eine lange Rampe laesst
+        // in ihren letzten Prozenten immer irgendwo Silhouetten stehen;
+        // im steilen Vorhang verschwinden Formen binnen weniger Bloecke.
+        // Nie spaeter als 85% der Renderdistanz (far), sonst schaut die
+        // Chunk-Kante aus der Wand heraus.
+        fog = max(fog, smoothstep(wallEnd * 0.55, wallEnd * 0.85, dist));
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
