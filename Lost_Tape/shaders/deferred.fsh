@@ -35,6 +35,7 @@ uniform sampler2D shadowtex1;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelViewInverse;
+uniform vec3 cameraPosition;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform vec3 shadowLightPosition;
@@ -344,6 +345,15 @@ void main() {
         // Rampenzone und stuenden sonst mit 1-10% Restsilhouette direkt
         // vor der leeren Blaue hinter der Welt (Vogelperspektive)
         fog = max(fog, smoothstep(wallEnd * 0.1, wallEnd * 0.7, dist));
+
+        // Vogelperspektive: von OBEN laufen flache Sichtlinien ueber den
+        // Weltrand in die Leere — jedes Gelaende in der letzten Rampenzone
+        // silhouettiert sich dort, egal wo die Wand endet. Deshalb zieht
+        // sich die Wand fuer FLACHE Blickwinkel frueher zu, sobald die
+        // Kamera deutlich ueber Bodenniveau ist. Am Boden: keine Wirkung.
+        float aboveF = smoothstep(96.0, 140.0, cameraPosition.y);
+        float flatF = 1.0 - smoothstep(0.15, 0.40, abs(playerPos.y) / max(dist, 0.001));
+        fog = max(fog, smoothstep(wallEnd * 0.15, wallEnd * 0.45, dist) * aboveF * flatF);
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
