@@ -41,6 +41,7 @@ uniform vec3 shadowLightPosition;
 uniform vec3 fogColor;
 uniform float viewWidth;
 uniform float viewHeight;
+uniform float far;
 uniform float rainStrength;
 uniform float frameTimeCounter;
 uniform float blindness;
@@ -311,10 +312,11 @@ void main() {
         float fogDist = dist;
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
-        // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel,
-        // egal wie hoch die Renderdistanz eingestellt ist —
-        // mit sehr langem, weichem Uebergang ab 20% der Distanz
-        fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
+        // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel — aber nie
+        // spaeter als 85% der Renderdistanz (far), sonst schliesst sich
+        // die Wand erst EXAKT an der Chunk-Kante und die bleibt sichtbar
+        float wallEnd = min(FOG_LIMIT, far * 0.85);
+        fog = max(fog, smoothstep(wallEnd * 0.2, wallEnd, dist));
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch

@@ -7,6 +7,7 @@
 
 uniform sampler2D texture;
 uniform vec3 fogColor;
+uniform float far;
 uniform float rainStrength;
 uniform float blindness;
 uniform float frameTimeCounter;
@@ -41,7 +42,8 @@ vec3 layerFog(vec3 col, float distV) {
     float fogD = distV;
     if (isEyeInWater == 0) fogD = max(distV - FOG_START, 0.0);
     float fogA = 1.0 - exp(-fogD * density);
-    fogA = max(fogA, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, distV));
+    float wallEnd = min(FOG_LIMIT, far * 0.85);
+    fogA = max(fogA, smoothstep(wallEnd * 0.2, wallEnd, distV));
     return mix(col, fc, fogA);
 }
 
