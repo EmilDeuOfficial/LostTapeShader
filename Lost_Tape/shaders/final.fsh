@@ -102,5 +102,5 @@ void main() {
     float vd = length(texcoord - 0.5) * 1.4142;
     col *= 1.0 - VIGNETTE_STRENGTH * smoothstep(0.45, 1.05, vd);
 
-    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    gl_FragData[0] = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
