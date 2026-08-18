@@ -1,4 +1,4 @@
-﻿#version 120
+#version 120
 
 // LOST TAPE â€” gbuffers_spidereyes: eigener Slot fuer additiv geblendete leuchtende Augen (siehe .fsh).
 

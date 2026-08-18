@@ -1,4 +1,4 @@
-﻿#version 120
+#version 120
 
 // LOST TAPE â€” gbuffers_spidereyes: leuchtende Augen (Spinne, Enderman) werden ADDITIV geblendet. Nebel darf so einen Beitrag nur ABSCHWAECHEN
 // (Richtung 0), niemals zur hellen Nebelfarbe hin mischen â€” sonst

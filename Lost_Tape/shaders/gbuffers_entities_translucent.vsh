@@ -26,11 +26,16 @@ void main() {
     viewDist = length(vpos.xyz);
     vec4 clip = gl_ProjectionMatrix * vpos;
 
-#if defined(VERTEX_SNAP) && defined(SNAP_ENTITIES)
+// verschachtelte #ifdef statt "#if defined(A) && defined(B)": Iris
+// erkennt die Option SNAP_ENTITIES sonst nicht als benutzt und
+// meldet "Invalid pack option"
+#ifdef VERTEX_SNAP
+#ifdef SNAP_ENTITIES
     if (clip.w > 0.0) {
         vec2 grid = vec2(SNAP_RES * viewWidth / viewHeight, SNAP_RES);
         clip.xy = floor(clip.xy / clip.w * grid + 0.5) / grid * clip.w;
     }
+#endif
 #endif
 
     gl_Position = clip;
