@@ -301,8 +301,12 @@ void main() {
     float fog;
     if (depth >= 1.0) {
         // Himmel im Dunst versinken lassen — zum Horizont hin voller Nebel,
-        // damit der Look unabhaengig von der Renderdistanz gleich bleibt
-        float upness = smoothstep(0.0, 0.35, normalize(playerPos).y);
+        // damit der Look unabhaengig von der Renderdistanz gleich bleibt.
+        // WICHTIG: bis ~13 Grad UEBER dem Horizont bleibt der Himmel
+        // KOMPLETT in Nebelfarbe (dicke Nebelbank) — voll vernebelte
+        // Huegel, die ueber die Augenhoehe ragen, haetten sonst eine
+        // sichtbare Kontur gegen den frueher aufklarenden Himmel
+        float upness = smoothstep(0.22, 0.55, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         // unter Wasser: Horizont versinkt im Truebwasser; nach oben derselbe
         // Dunst wie ueber Wasser, damit die Sonne in beiden Faellen gleich wirkt
