@@ -281,6 +281,13 @@ void main() {
         }
         vis /= float(VL_SAMPLES);
 
+        // Richtung Nebelwand die Streifen neutralisieren (vis -> 1):
+        // fast verschluckte Huegel werfen Schatten in den Nebel dahinter
+        // und wuerden mit aktiven god rays als Geister-Konturen in der
+        // Wand haengen. Nah- und Mittelfeld bleiben voll aktiv, die Wand
+        // bekommt stattdessen einen gleichmaessigen Sonnen-Glow.
+        vis = mix(vis, 1.0, smoothstep(wallEnd * 0.5, wallEnd * 0.8, dist));
+
         // breite Streuphase: Strahlen auch sichtbar, wenn man nicht direkt
         // zur Sonne schaut — Richtung Sonne werden sie deutlich staerker
         vec3 viewDir = viewPos / max(dist, 0.001);
