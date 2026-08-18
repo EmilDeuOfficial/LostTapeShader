@@ -19,7 +19,6 @@
 #define SSAO // Kontaktschatten: Objekte werfen weiche Schatten in Ecken & um Blocklicht
 #define SSAO_STRENGTH 0.50 // [0.25 0.50 0.75 1.00]
 #define LIGHT_SHAFTS // volumetrische Licht-/Schattenstreifen im Nebel
-#define VL_STRENGTH 0.60 // [0.00 0.20 0.40 0.60 0.80 1.00 1.30 1.60]
 #define VL_SAMPLES 16 // [8 12 16 24 32]
 #define VL_DARKEN 0.35 // [0.00 0.20 0.35 0.50 0.70]
 
@@ -259,13 +258,14 @@ void main() {
     // der Wand und Himmel exakt dieselben Streu-Terme bekommen.
     float wallEnd = min(FOG_LIMIT, far * 0.85);
 
-    // ============ Lichtstreifen: Raymarch durch die Schattenkarte ============
+    // ============ Schattensaeulen-Abdunklung (VL) ============
+    // NUR die Nebel-Abdunklung in Schattensaeulen passiert hier — der
+    // helle Streifen-GLANZ liegt im composite-Pass UEBER den
+    // Transluzenten. Wuerde er hier addiert, blendet die
+    // Wasseroberflaeche ihn anteilig weg und die Ozeanflaeche staende
+    // als dunklere Silhouette am Horizont (die "Chunk-Kante", die nur
+    // ueber Wasser sichtbar war).
     float vis = 1.0;
-    float phase = 0.0;
-    float media = 0.0;
-    float rainW = 1.0;
-    float dnw = 0.0;
-    vec3 lightCol = vec3(0.0);
 #ifdef LIGHT_SHAFTS
     // Lichtstrahlen brauchen die Sonnen-Schattenkarte — nicht im Nether/End
     if (isEyeInWater != 2 && !isNether && !isEnd) {
@@ -297,23 +297,11 @@ void main() {
         // mit gleichmaessigem Sonnen-Glow. Nahfeld-Streifen unveraendert.
         vis = mix(vis, 1.0, smoothstep(wallEnd * 0.3, wallEnd * 0.6, dist));
 
-        // breite Streuphase: Strahlen auch sichtbar, wenn man nicht direkt
-        // zur Sonne schaut — Richtung Sonne werden sie deutlich staerker
-        vec3 viewDir = viewPos / max(dist, 0.001);
-        float cosT = clamp(dot(viewDir, normalize(shadowLightPosition)), 0.0, 1.0);
-        // enger Glow: kleine, kompakte Sonnenscheibe statt riesigem Fleck
-        phase = 0.15 + 1.4 * pow(cosT, 20.0);
-
         float sunH = sin(sunAngle * 6.2831853);
         float dayF = clamp(sunH * 4.0, 0.0, 1.0);
         float nightF = clamp(-sunH * 4.0, 0.0, 1.0);
-        rainW = 1.0 - rainStrength * 0.85;
-        dnw = clamp(dayF + nightF * 0.6, 0.0, 1.0) * rainW;
-        lightCol = dayF * vec3(0.85, 0.80, 0.68) + nightF * vec3(0.18, 0.22, 0.30);
-        // unter Wasser: Sonnenstrahlen kuehl-gruenlich gefiltert
-        if (isEyeInWater == 1) lightCol *= vec3(0.45, 0.80, 0.75);
-
-        media = 1.0 - exp(-rayLen * density * 2.5);
+        float rainW = 1.0 - rainStrength * 0.85;
+        float dnw = clamp(dayF + nightF * 0.6, 0.0, 1.0) * rainW;
 
         // Nebel in Schattensaeulen abdunkeln -> dunkle Streifen am Schattenrand
         fogC *= mix(1.0 - VL_DARKEN * dnw, 1.0, vis);
@@ -322,18 +310,13 @@ void main() {
 
     float fog;
     if (depth >= 1.0) {
-        // Himmel im Dunst versinken lassen — zum Horizont hin voller Nebel,
-        // damit der Look unabhaengig von der Renderdistanz gleich bleibt.
-        // WICHTIG: bis ~13 Grad UEBER dem Horizont bleibt der Himmel
-        // KOMPLETT in Nebelfarbe (dicke Nebelbank) — voll vernebelte
-        // Huegel, die ueber die Augenhoehe ragen, haetten sonst eine
-        // sichtbare Kontur gegen den frueher aufklarenden Himmel
-        // Der Verlauf von der Nebelbank zum klareren Himmel erstreckt
-        // sich ueber die GESAMTE Kuppel (14 Grad ueber Horizont bis
-        // Zenit). Ein engerer Verlauf hat eine wahrnehmbare Ansatzlinie
-        // auf Hoehe des Weltrands — die las sich als "Chunk-Kante",
-        // obwohl beide Seiten der Linie Himmelspixel sind (per
-        // Diagnose-Overlay bewiesen).
+        // Himmel im Dunst versinken lassen: bis ~14 Grad ueber dem
+        // Horizont bleibt er KOMPLETT in Nebelfarbe (dicke Nebelbank,
+        // deckt Huegel-Silhouetten), darueber erstreckt sich der Verlauf
+        // zum klareren Himmel ueber die GESAMTE Kuppel bis zum Zenit —
+        // ein engerer Verlauf hat eine wahrnehmbare Ansatzlinie auf
+        // Hoehe des Weltrands, die sich als "Chunk-Kante" las (per
+        // Diagnose-Overlay bewiesen: beide Seiten waren Himmelspixel).
         float upness = smoothstep(0.25, 1.0, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         // unter Wasser: Horizont versinkt im Truebwasser; nach oben derselbe
@@ -360,11 +343,6 @@ void main() {
     // benebelte Szene und benebeln sich dabei selbst an ihrer eigenen
     // Distanz (layerFog in den gbuffers-Programmen) — Vanilla-Modell.
     color.rgb = mix(color.rgb, fogC, fog);
-
-#ifdef LIGHT_SHAFTS
-    // helle Strahlen in beleuchteten Nebelsaeulen
-    color.rgb += lightCol * (vis * phase * media * VL_STRENGTH) * rainW;
-#endif
 
 /* DRAWBUFFERS:0 */
     gl_FragData[0] = color;
