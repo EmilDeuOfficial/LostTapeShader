@@ -314,9 +314,12 @@ void main() {
         fog = 1.0 - exp(-fogDist * density);
         // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel — aber nie
         // spaeter als 85% der Renderdistanz (far), sonst schliesst sich
-        // die Wand erst EXAKT an der Chunk-Kante und die bleibt sichtbar
+        // die Wand erst EXAKT an der Chunk-Kante und die bleibt sichtbar.
+        // Volle Deckung schon bei 80% der Wanddistanz: die letzten Prozent
+        // der Rampe liessen sonst Gelaende-Silhouetten kurz vor der Wand
+        // als Chunk-Konturen gegen den Himmel durchschimmern
         float wallEnd = min(FOG_LIMIT, far * 0.85);
-        fog = max(fog, smoothstep(wallEnd * 0.2, wallEnd, dist));
+        fog = max(fog, smoothstep(wallEnd * 0.15, wallEnd * 0.8, dist));
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
