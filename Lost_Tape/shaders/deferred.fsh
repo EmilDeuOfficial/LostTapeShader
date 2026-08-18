@@ -29,7 +29,7 @@ const float sunPathRotation = -30.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
-uniform sampler2D depthtex1;
+uniform sampler2D depthtex0;
 uniform sampler2D depthtex2;
 uniform sampler2D shadowtex1;
 uniform mat4 gbufferProjection;
@@ -71,7 +71,7 @@ float sampleShadow(vec3 sclip, vec2 texelOff, float biasMul) {
 
 // View-Position an beliebiger Bildschirmposition rekonstruieren
 vec3 viewPosAt(vec2 uv) {
-    float d = texture2D(depthtex1, uv).x;
+    float d = texture2D(depthtex0, uv).x;
     vec4 ndc = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
     vec4 v = gbufferProjectionInverse * ndc;
     return v.xyz / v.w;
@@ -95,8 +95,11 @@ vec3 normalAt(vec2 uv, vec3 c) {
 
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
-    // Transluzente sind noch nicht gezeichnet: depthtex1 = die opake Szene
-    float depth = texture2D(depthtex1, texcoord).x;
+    // depthtex0 (Live-Tiefe) IST hier die opake Szene: Transluzente sind
+    // noch nicht gezeichnet. depthtex1 waere riskant — die Kopie wird je
+    // nach Loader erst NACH dem deferred-Pass angelegt und liest dann
+    // leer (alle Distanzen ~0 -> Nebel/Schatten/VL komplett wirkungslos)
+    float depth = texture2D(depthtex0, texcoord).x;
     // Hand-Pixel erkennen: depthtex2 = Szene OHNE Hand. Auf der Hand keine
     // Schatten-/SSAO-Tests — die komprimierte Hand-Tiefe liefert falsche
     // Normalen und wuerde den Arm je nach Blickrichtung zur Sonne abdunkeln
@@ -203,7 +206,7 @@ void main() {
             float a = ang + float(i) * 0.785398;
             float r = uvRad * (0.3 + 0.7 * float(i) / 7.0);
             vec2 suv = texcoord + vec2(cos(a), sin(a)) * r;
-            float sd = texture2D(depthtex1, suv).x;
+            float sd = texture2D(depthtex0, suv).x;
             vec4 sndc = vec4(suv * 2.0 - 1.0, sd * 2.0 - 1.0, 1.0);
             vec4 sv4 = gbufferProjectionInverse * sndc;
             vec3 diffV = sv4.xyz / sv4.w - viewPos;
