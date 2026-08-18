@@ -6,10 +6,10 @@
 // der Nebel hinter Glas baulich IDENTISCH mit dem Nebel daneben — auch die
 // Nebelwand, die die Renderdistanz-Kante verschluckt.
 
-#define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
+#define FOG_DENSITY 1.50 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 #define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
 #define SKY_FOG 0.75 // [0.00 0.20 0.40 0.60 0.75 0.90 1.00]
-#define FOG_LIMIT 160.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
+#define FOG_LIMIT 512.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
 #define FOG_BREATHING // langsames An- und Abschwellen des Nebels
 
 #define SHADOWS // Sonnen- und Mondschatten
@@ -251,11 +251,13 @@ void main() {
         fogC = vec3(0.45, 0.12, 0.02);
     }
 
-    // Wand-Distanz: hinter der Nebelwand existiert optisch nichts mehr.
-    // Auch der VL-Raymarch endet dort — Gelaende an der Wand und Himmel
-    // bekommen so EXAKT dieselben Streu-Terme. Selbst 1% Unterschied
-    // wuerde die Huegel-Silhouetten am Horizont nachzeichnen.
-    float wallEnd = min(FOG_LIMIT, far * 0.85);
+    // Wand-Distanz: koppelt an die MAXIMALE RENDERDISTANZ (far) — der
+    // Vorhang liegt immer kurz vor der Chunk-Kante, egal wie weit man
+    // stellt. FOG_LIMIT (Standard 512) kann ihn optional naeher ziehen.
+    // Hinter der Wand existiert optisch nichts mehr; auch der VL-Raymarch
+    // endet dort, damit Gelaende an der Wand und Himmel exakt dieselben
+    // Streu-Terme bekommen.
+    float wallEnd = min(FOG_LIMIT, far);
 
     // ============ Lichtstreifen: Raymarch durch die Schattenkarte ============
     float vis = 1.0;
