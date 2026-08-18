@@ -106,9 +106,10 @@ void main() {
         color.rgb *= vec3(0.92, 0.97, 0.95);
         color.a *= WATER_OPACITY;
     } else if (blockId > 10008.5 && blockId < 10009.5) {
-        // Nether-Portal: kraeftig deckend UND Saettigung vorverstaerkt,
-        // damit das Lila das entsaettigende Analog-Grading uebersteht
-        color.a = min(color.a * 2.2, 0.97);
+        // Nether-Portal: kraeftiger deckend UND Saettigung vorverstaerkt,
+        // damit das Lila das entsaettigende Analog-Grading uebersteht —
+        // aber wie in Vanilla bleibt es LEICHT durchsichtig
+        color.a = min(color.a * 1.6, 0.82);
         color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
     } else {
         // gefaerbtes Glas & Co.: Deckkraft bleibt VANILLA, damit die
