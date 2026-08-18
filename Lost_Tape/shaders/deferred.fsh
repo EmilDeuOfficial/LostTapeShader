@@ -328,10 +328,13 @@ void main() {
         // KOMPLETT in Nebelfarbe (dicke Nebelbank) — voll vernebelte
         // Huegel, die ueber die Augenhoehe ragen, haetten sonst eine
         // sichtbare Kontur gegen den frueher aufklarenden Himmel
-        // breiter Verlauf: der Uebergang von der Nebelbank zum klaren
-        // Himmel ist so flach, dass seine Ansatzkante nicht als Bogen
-        // lesbar ist (die zweite moegliche Quelle der Horizont-Kontur)
-        float upness = smoothstep(0.25, 0.75, normalize(playerPos).y);
+        // Der Verlauf von der Nebelbank zum klareren Himmel erstreckt
+        // sich ueber die GESAMTE Kuppel (14 Grad ueber Horizont bis
+        // Zenit). Ein engerer Verlauf hat eine wahrnehmbare Ansatzlinie
+        // auf Hoehe des Weltrands — die las sich als "Chunk-Kante",
+        // obwohl beide Seiten der Linie Himmelspixel sind (per
+        // Diagnose-Overlay bewiesen).
+        float upness = smoothstep(0.25, 1.0, normalize(playerPos).y);
         fog = clamp(mix(1.0, SKY_FOG, upness) + rainStrength * 0.25, 0.0, 1.0);
         // unter Wasser: Horizont versinkt im Truebwasser; nach oben derselbe
         // Dunst wie ueber Wasser, damit die Sonne in beiden Faellen gleich wirkt
