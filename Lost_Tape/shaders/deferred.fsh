@@ -267,7 +267,14 @@ void main() {
 #ifdef LIGHT_SHAFTS
     // Lichtstrahlen brauchen die Sonnen-Schattenkarte — nicht im Nether/End
     if (isEyeInWater != 2 && !isNether && !isEnd) {
-        float rayLen = min(min(dist, shadowDistance), wallEnd * 0.8);
+        // Strahl-Laenge: normal bis zur Oberflaeche, zur Wand hin aber auf
+        // die volle Wand-Distanz uebergeblendet — fast verschluckte Huegel
+        // duerfen den Strahl nicht mehr verkuerzen, sonst springen vis und
+        // media exakt an ihrer Silhouette gegenueber dem Himmel daneben
+        // und pausen die Kontur als Geisterhuegel in die Wand
+        float wallCap = wallEnd * 0.8;
+        float rayLen = min(min(dist, shadowDistance), wallCap);
+        rayLen = mix(rayLen, wallCap, smoothstep(wallEnd * 0.4, wallEnd * 0.7, dist));
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
         vec3 sStart = toShadowClip(vec3(0.0));
         vec3 sEnd = toShadowClip(endPos);
@@ -281,12 +288,12 @@ void main() {
         }
         vis /= float(VL_SAMPLES);
 
-        // Richtung Nebelwand die Streifen neutralisieren (vis -> 1):
-        // fast verschluckte Huegel werfen Schatten in den Nebel dahinter
-        // und wuerden mit aktiven god rays als Geister-Konturen in der
-        // Wand haengen. Nah- und Mittelfeld bleiben voll aktiv, die Wand
-        // bekommt stattdessen einen gleichmaessigen Sonnen-Glow.
-        vis = mix(vis, 1.0, smoothstep(wallEnd * 0.5, wallEnd * 0.8, dist));
+        // Streifen-Variation im Fernfeld ausblenden — ABGESCHLOSSEN bevor
+        // Huegel im Nebel unsichtbar werden (~60% der Wanddistanz, dort
+        // ist Gelaende noch erkennbar): so springt die Blende nie an einer
+        // unsichtbaren Silhouette und die Wand bleibt eine flache Flaeche
+        // mit gleichmaessigem Sonnen-Glow. Nahfeld-Streifen unveraendert.
+        vis = mix(vis, 1.0, smoothstep(wallEnd * 0.3, wallEnd * 0.6, dist));
 
         // breite Streuphase: Strahlen auch sichtbar, wenn man nicht direkt
         // zur Sonne schaut — Richtung Sonne werden sie deutlich staerker
