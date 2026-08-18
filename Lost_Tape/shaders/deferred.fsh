@@ -272,7 +272,7 @@ void main() {
         // duerfen den Strahl nicht mehr verkuerzen, sonst springen vis und
         // media exakt an ihrer Silhouette gegenueber dem Himmel daneben
         // und pausen die Kontur als Geisterhuegel in die Wand
-        float wallCap = wallEnd * 0.8;
+        float wallCap = wallEnd * 0.7;
         float rayLen = min(min(dist, shadowDistance), wallCap);
         rayLen = mix(rayLen, wallCap, smoothstep(wallEnd * 0.4, wallEnd * 0.7, dist));
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
@@ -339,10 +339,11 @@ void main() {
         // Nebelwand: ab FOG_LIMIT Bloecken immer voller Nebel — aber nie
         // spaeter als 85% der Renderdistanz (far), sonst schliesst sich
         // die Wand erst EXAKT an der Chunk-Kante und die bleibt sichtbar.
-        // Volle Deckung schon bei 80% der Wanddistanz: die letzten Prozent
-        // der Rampe liessen sonst Gelaende-Silhouetten kurz vor der Wand
-        // als Chunk-Konturen gegen den Himmel durchschimmern
-        fog = max(fog, smoothstep(wallEnd * 0.15, wallEnd * 0.8, dist));
+        // Volle Deckung schon bei 70% der Wanddistanz: hohe Baeume am
+        // Rand der geladenen Welt ragen mit den Spitzen in die letzte
+        // Rampenzone und stuenden sonst mit 1-10% Restsilhouette direkt
+        // vor der leeren Blaue hinter der Welt (Vogelperspektive)
+        fog = max(fog, smoothstep(wallEnd * 0.1, wallEnd * 0.7, dist));
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch

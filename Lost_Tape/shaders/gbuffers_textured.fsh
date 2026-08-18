@@ -43,7 +43,7 @@ vec3 layerFog(vec3 col, float distV) {
     if (isEyeInWater == 0) fogD = max(distV - FOG_START, 0.0);
     float fogA = 1.0 - exp(-fogD * density);
     float wallEnd = min(FOG_LIMIT, far * 0.85);
-    fogA = max(fogA, smoothstep(wallEnd * 0.15, wallEnd * 0.8, distV));
+    fogA = max(fogA, smoothstep(wallEnd * 0.1, wallEnd * 0.7, distV));
     return mix(col, fc, fogA);
 }
 
