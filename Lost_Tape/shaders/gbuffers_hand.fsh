@@ -57,18 +57,11 @@ void main() {
 
     color.rgb *= light;
 
-/* DRAWBUFFERS:013 */
+/* DRAWBUFFERS:01 */
     gl_FragData[0] = color;
     // Alpha steuert das Blending: transluzente Bloecke in der Hand (Eis,
     // Buntglas) duerfen ihre Hand-Lightmap NICHT ueber die Lichtdaten des
     // Gelaendes dahinter schmieren (falsche Schatten-/SSAO-Staerke dort) —
     // Alpha 0 laesst colortex1 beim Blending unangetastet
     gl_FragData[1] = vec4(lmcoord, 0.0, step(0.9, color.a));
-    // NUR transluzente Fragmente (gehaltenes Eis/Buntglas) in die Schicht —
-    // sie sollen vor dem Himmel nicht im Horizontnebel verschwinden. Der
-    // opake Arm bleibt draussen (Deckung 0), sonst wuerde er die Schicht-
-    // daten dahinter ueberschreiben. Selbst-Nebel unnoetig: die Hand ist
-    // immer <2 Bloecke entfernt.
-    float layerA = color.a < 0.9 ? color.a : 0.0;
-    gl_FragData[2] = vec4(color.rgb, layerA);
 }

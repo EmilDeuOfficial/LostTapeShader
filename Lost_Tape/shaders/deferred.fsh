@@ -1,6 +1,10 @@
 #version 120
 
-// LOST TAPE — composite: Schatten, dichter atmender Nebel, Lichtstreifen
+// LOST TAPE — deferred: Schatten, Nebel, Lichtstreifen auf der OPAKEN Szene.
+// Laeuft VOR den Transluzenten: Glas/Wasser mischen sich danach ueber den
+// bereits fertig benebelten Hintergrund (Vanilla-Reihenfolge). Dadurch ist
+// der Nebel hinter Glas baulich IDENTISCH mit dem Nebel daneben — auch die
+// Nebelwand, die die Renderdistanz-Kante verschluckt.
 
 #define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 #define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
@@ -25,10 +29,9 @@ const float sunPathRotation = -30.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
-uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
+uniform sampler2D depthtex2;
 uniform sampler2D shadowtex1;
-uniform sampler2D colortex3;
 uniform mat4 gbufferProjection;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferModelViewInverse;
@@ -45,10 +48,6 @@ uniform float sunAngle;
 uniform int isEyeInWater;
 
 varying vec2 texcoord;
-
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
 
 float bayer2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
@@ -96,10 +95,12 @@ vec3 normalAt(vec2 uv, vec3 c) {
 
 void main() {
     vec4 color = texture2D(colortex0, texcoord);
-    // Tiefe OHNE transluzente Bloecke: Schatten & Nebel wirken hinter Glas/Wasser
+    // Transluzente sind noch nicht gezeichnet: depthtex1 = die opake Szene
     float depth = texture2D(depthtex1, texcoord).x;
-    // Tiefe MIT Transluzentem: erkennt Flaechen, die unter Wasser/Glas liegen
-    float depthT = texture2D(depthtex0, texcoord).x;
+    // Hand-Pixel erkennen: depthtex2 = Szene OHNE Hand. Auf der Hand keine
+    // Schatten-/SSAO-Tests — die komprimierte Hand-Tiefe liefert falsche
+    // Normalen und wuerde den Arm je nach Blickrichtung zur Sonne abdunkeln
+    bool isHand = depth < texture2D(depthtex2, texcoord).x - 1.0e-6;
 
     // Abstand zur Kamera aus dem Depth-Buffer rekonstruieren
     vec4 ndc = vec4(texcoord * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -120,16 +121,12 @@ void main() {
     // anheben, damit Inseln und Tuerme nicht im Schwarz verschwinden.
     // Moderat gewaehlt, damit Fackel-/Kerzenlicht nicht uebersteuert.
     // Overworld-Hoehlen sind nie betroffen.
-    // shadeMul sammelt alle Abdunklungen/Aufhellungen dieses Pixels
-    // (End-Lift, Schatten, SSAO) — der Nebel-Split am Ende braucht sie,
-    // um die transluzente Schicht gleich zu behandeln wie den Pixel
-    float shadeMul = 1.0;
-    if (isEnd && depth < 1.0) { color.rgb = color.rgb * 1.4 + 0.05; shadeMul *= 1.4; }
+    if (isEnd && depth < 1.0) color.rgb = color.rgb * 1.4 + 0.05;
 
     // ============ Schatten ============
     // im Nether/End gibt es keine Sonne — Schattenkarte dort ueberspringen
 #ifdef SHADOWS
-    if (depth < 1.0 && !isNether && !isEnd) {
+    if (depth < 1.0 && !isNether && !isEnd && !isHand) {
         // nur Flaechen abdunkeln, die Himmelslicht sehen (Hoehlen/Innenraeume bleiben unberuehrt)
         vec4 lmData = texture2D(colortex1, texcoord);
         float skyExp = lmData.y;
@@ -186,9 +183,7 @@ void main() {
             // Schatten zur Distanzgrenze hin ausblenden
             float fade = smoothstep(shadowDistance * 0.70, shadowDistance * 0.95, dist);
             sh = mix(sh, 1.0, fade);
-            float shadeF = mix(1.0 - shStr, 1.0, sh);
-            color.rgb *= shadeF;
-            shadeMul *= shadeF;
+            color.rgb *= mix(1.0 - shStr, 1.0, sh);
         }
     }
 #endif
@@ -197,7 +192,7 @@ void main() {
     // Objekte werfen weiche Schatten in Ecken und um sich herum —
     // rund um Blocklicht verstaerkt, damit Fackeln eigene Schatten erzeugen
 #ifdef SSAO
-    if (depth < 1.0 && dist < 48.0) {
+    if (depth < 1.0 && dist < 48.0 && !isHand) {
         vec3 nrm = normalize(cross(dFdx(viewPos), dFdy(viewPos)));
         float torchAO = texture2D(colortex1, texcoord).x;
 
@@ -220,9 +215,7 @@ void main() {
 
         float aoStr = SSAO_STRENGTH * (0.6 + 0.6 * smoothstep(0.2, 0.8, torchAO));
         float distFade = 1.0 - smoothstep(32.0, 48.0, dist);
-        float aoF = 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
-        color.rgb *= aoF;
-        shadeMul *= aoF;
+        color.rgb *= 1.0 - clamp(ao * aoStr, 0.0, 0.7) * distFade;
     }
 #endif
 
@@ -321,28 +314,17 @@ void main() {
         fog = max(fog, smoothstep(FOG_LIMIT * 0.2, FOG_LIMIT, dist));
     }
 
-    // Transluzente Schichten (Glas, Wasser, Portal, Regen, Partikel) haben
-    // sich beim Zeichnen bereits SELBST benebelt — jede an ihrer eigenen
-    // Distanz (layerFog in den gbuffers-Programmen, Vanilla-Modell). Hier
-    // bekommt nur noch der Hintergrund-Anteil den Szenen-Nebel. So faded
-    // die Ferne hinter Glas exakt wie daneben, und auch ein Ozean hinter
-    // Glas laeuft weich in den Horizont (fernes Wasser traegt seinen
-    // vollen eigenen Nebel statt den Nah-Nebel des Glases zu erben).
-    vec4 trans = texture2D(colortex3, texcoord);
-    if (trans.a > 0.002 && depthT < depth) {
-        // Schicht-Farbe mit denselben Abdunklungen (Schatten/SSAO) wie der Pixel
-        vec3 layerC = trans.rgb * shadeMul;
-        vec3 bgPart = max(color.rgb - layerC, vec3(0.0));
-        color.rgb = layerC + bgPart * (1.0 - fog) + fogC * ((1.0 - trans.a) * fog);
-    } else {
-        color.rgb = mix(color.rgb, fogC, fog);
-    }
+    // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
+    // NICHT gezeichnet: sie mischen sich anschliessend ueber diese fertig
+    // benebelte Szene und benebeln sich dabei selbst an ihrer eigenen
+    // Distanz (layerFog in den gbuffers-Programmen) — Vanilla-Modell.
+    color.rgb = mix(color.rgb, fogC, fog);
 
 #ifdef LIGHT_SHAFTS
     // helle Strahlen in beleuchteten Nebelsaeulen
     color.rgb += lightCol * (vis * phase * media * VL_STRENGTH) * rainW;
 #endif
 
-/* DRAWBUFFERS:2 */
+/* DRAWBUFFERS:0 */
     gl_FragData[0] = color;
 }

@@ -63,11 +63,8 @@ void main() {
     // KEIN Selbst-Nebel: Regen faellt immer nah am Spieler (<15 Bloecke),
     // sein eigener Nebel-Anteil waere ohnehin vernachlaessigbar
 
-/* DRAWBUFFERS:03 */
+/* DRAWBUFFERS:0 */
     // kein Schreiben in colortex1: Regen wuerde sonst die Lichtdaten der
     // Flaechen dahinter ueberschreiben (tropfenfoermige Schatten-Artefakte)
     gl_FragData[0] = color;
-    // Regen gehoert zur transluzenten Schicht (colortex3): sonst wird er
-    // vor Wasser/Glas als "Hintergrund" mit dem Fern-Nebel verrechnet
-    gl_FragData[1] = vec4(color.rgb, color.a);
 }

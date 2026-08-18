@@ -28,9 +28,9 @@ varying vec2 lmcoord;
 varying vec4 glcolor;
 varying float viewDist;
 
-// Schicht-Nebel: dieselbe Formel wie der Hintergrund-Nebel in composite —
+// Schicht-Nebel: dieselbe Formel wie der Hintergrund-Nebel in deferred —
 // jede transluzente Schicht benebelt sich beim Zeichnen an ihrer EIGENEN
-// Distanz (Vanilla-Modell). composite benebelt nur noch den Hintergrund.
+// Distanz (Vanilla-Modell). deferred hat den Hintergrund bereits benebelt.
 vec3 layerFog(vec3 col, float distV) {
     vec3 fc = fogColor;
     float flum = dot(fc, vec3(0.299, 0.587, 0.114));
@@ -96,11 +96,9 @@ void main() {
     // Selbst-Benebelung an der eigenen Distanz (Vanilla-Modell)
     color.rgb = layerFog(color.rgb, viewDist);
 
-/* DRAWBUFFERS:013 */
+/* DRAWBUFFERS:01 */
     gl_FragData[0] = color;
     // Lightmap nur fuer volldeckende Texel — halbtransparente Partikel
     // sollen die Lichtdaten des Gelaendes dahinter nicht verfaelschen
     gl_FragData[1] = vec4(lmcoord, 0.0, step(0.9, color.a));
-    // beleuchtete Partikel in die transluzente Schicht aufnehmen (s. gbuffers_textured)
-    gl_FragData[2] = vec4(color.rgb, color.a);
 }

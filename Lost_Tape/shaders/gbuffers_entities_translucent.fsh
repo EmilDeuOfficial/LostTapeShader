@@ -1,11 +1,15 @@
 #version 120
 
+// LOST TAPE — gbuffers_entities_translucent: wie gbuffers_entities, aber
+// mit Selbst-Nebel. Diese Fragmente zeichnen auf Iris NACH dem deferred-
+// Pass — ohne layerFog blieben Phantome/Slimes vor der Nebelwand und
+// hinter Glas gestochen scharf.
+
 #define LIGHT_GAMMA 1.20 // [0.80 0.90 1.00 1.10 1.20 1.35 1.50 1.75 2.00]
 #define NIGHT_BRIGHTNESS 1.00 // [0.00 0.50 1.00 1.50 2.00 3.00]
 #define BLOCKLIGHT_BOOST 1.25 // [0.50 0.75 1.00 1.25 1.50 1.75 2.00]
 #define HAND_LIGHT // dynamisches Licht von Fackeln & Co. in der Hand
 #define HAND_LIGHT_STRENGTH 1.00 // [0.50 0.75 1.00 1.25 1.50 2.00]
-#define WATER_OPACITY 0.45 // [0.30 0.40 0.45 0.50 0.60 0.75 0.90 1.00]
 #define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
 #define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
 #define FOG_LIMIT 128.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
@@ -14,6 +18,7 @@
 uniform sampler2D texture;
 uniform sampler2D lightmap;
 uniform float sunAngle;
+uniform vec4 entityColor;
 uniform int heldBlockLightValue;
 uniform int heldBlockLightValue2;
 uniform int heldItemId;
@@ -28,7 +33,6 @@ varying vec2 texcoord;
 varying vec2 lmcoord;
 varying vec4 glcolor;
 varying float viewDist;
-varying float blockId;
 
 // Schicht-Nebel: dieselbe Formel wie der Hintergrund-Nebel in deferred —
 // jede transluzente Schicht benebelt sich beim Zeichnen an ihrer EIGENEN
@@ -61,20 +65,21 @@ vec3 layerFog(vec3 col, float distV) {
 
 void main() {
     vec4 color = texture2D(texture, texcoord) * glcolor;
-    if (color.a < 0.01) discard;
+    if (color.a < 0.1) discard;
+
+    // Verletzungs-Flash usw.
+    color.rgb = mix(color.rgb, entityColor.rgb, entityColor.a);
 
     vec3 light = texture2D(lightmap, lmcoord).rgb;
     light = pow(light, vec3(LIGHT_GAMMA));
 
-    // Aufhellungen (Fackel-Boost, Mondlicht) NUR auf echtem Wasser:
-    // gefaerbtes Glas & Co. wuerden sonst im Dunkeln als heller Film
-    // ueber der Szene liegen und die Flaechen dahinter aufhellen
-    if (blockId > 10007.5 && blockId < 10008.5) {
-        vec3 torchLight = texture2D(lightmap, vec2(lmcoord.x, 0.03125)).rgb;
-        light = max(light, torchLight * BLOCKLIGHT_BOOST);
-        float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
-        light += vec3(0.035, 0.045, 0.065) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
-    }
+    // Fackeln & Co. von der Abdunklung ausnehmen: Blocklicht separat samplen
+    vec3 torchLight = texture2D(lightmap, vec2(lmcoord.x, 0.03125)).rgb;
+    light = max(light, torchLight * BLOCKLIGHT_BOOST);
+
+    // Mondlicht: hellt Naechte auf, nur wo Himmel sichtbar ist (Hoehlen bleiben dunkel)
+    float nightF = clamp(-sin(sunAngle * 6.2831853) * 4.0, 0.0, 1.0);
+    light += vec3(0.035, 0.045, 0.065) * (NIGHT_BRIGHTNESS * nightF * lmcoord.y);
 
 #ifdef HAND_LIGHT
     // dynamisches Licht: gehaltene Fackeln & Co. beleuchten die Umgebung
@@ -97,29 +102,10 @@ void main() {
 
     color.rgb *= light;
 
-    float tLum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    if (blockId > 10007.5 && blockId < 10008.5) {
-        // Wasser durchsichtiger: die Blockfarben am Grund kommen durch
-        color.rgb *= vec3(0.92, 0.97, 0.95);
-        color.a *= WATER_OPACITY;
-    } else if (blockId > 10008.5 && blockId < 10009.5) {
-        // Nether-Portal: kraeftig deckend UND Saettigung vorverstaerkt,
-        // damit das Lila das entsaettigende Analog-Grading uebersteht
-        color.a = min(color.a * 2.2, 0.97);
-        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.4), 0.0, 1.0);
-    } else {
-        // gefaerbtes Glas & Co.: Deckkraft bleibt VANILLA, damit die
-        // Blockfarben und Texturen dahinter erkennbar bleiben — nur ein
-        // Hauch Saettigungs-Ausgleich gegen das entsaettigende Grading
-        color.rgb = clamp(mix(vec3(tLum), color.rgb, 1.12), 0.0, 1.0);
-    }
-
-    // Selbst-Benebelung an der eigenen Distanz: der Hintergrund ist vom
-    // deferred-Pass bereits fertig benebelt, diese Schicht mischt sich
-    // mit ihrem eigenen Nebel darueber (Vanilla-Modell)
+    // Selbst-Benebelung an der eigenen Distanz (Vanilla-Modell)
     color.rgb = layerFog(color.rgb, viewDist);
 
 /* DRAWBUFFERS:0 */
-    // kein Schreiben in colortex1: die Lichtdaten des Bodens HINTER dem Glas bleiben erhalten
+    // kein colortex1: der deferred-Pass hat die Lichtdaten bereits gelesen
     gl_FragData[0] = color;
 }
