@@ -10,9 +10,9 @@
 #define BLOCKLIGHT_BOOST 1.25 // [0.50 0.75 1.00 1.25 1.50 1.75 2.00]
 #define HAND_LIGHT // dynamisches Licht von Fackeln & Co. in der Hand
 #define HAND_LIGHT_STRENGTH 1.00 // [0.50 0.75 1.00 1.25 1.50 2.00]
-#define FOG_DENSITY 1.50 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
-#define FOG_START 96.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
-#define FOG_LIMIT 512.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
+#define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
+#define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
+#define FOG_LIMIT 128.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
 #define FOG_BREATHING // langsames An- und Abschwellen des Nebels
 
 uniform sampler2D texture;
@@ -60,9 +60,8 @@ vec3 layerFog(vec3 col, float distV) {
     float fogD = distV;
     if (isEyeInWater == 0) fogD = max(distV - FOG_START, 0.0);
     float fogA = 1.0 - exp(-fogD * density);
-    float wallEnd = min(FOG_LIMIT, far * 0.9);
-    float wallStart = min(100.0, wallEnd * 0.6);
-    fogA = max(fogA, smoothstep(wallStart, wallEnd, distV));
+    float wallEnd = min(FOG_LIMIT, far * 0.85);
+    fogA = max(fogA, smoothstep(wallEnd * 0.2, wallEnd, distV));
     return mix(col, fc, fogA);
 }
 

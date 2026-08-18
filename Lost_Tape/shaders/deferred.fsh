@@ -6,10 +6,10 @@
 // der Nebel hinter Glas baulich IDENTISCH mit dem Nebel daneben — auch die
 // Nebelwand, die die Renderdistanz-Kante verschluckt.
 
-#define FOG_DENSITY 1.50 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
-#define FOG_START 96.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
+#define FOG_DENSITY 1.00 // [0.00 0.25 0.50 0.75 1.00 1.25 1.50 2.00 2.50 3.00]
+#define FOG_START 8.0 // [0.0 4.0 8.0 12.0 16.0 24.0 32.0 48.0 64.0 96.0 128.0]
 #define SKY_FOG 0.75 // [0.00 0.20 0.40 0.60 0.75 0.90 1.00]
-#define FOG_LIMIT 512.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
+#define FOG_LIMIT 128.0 // [64.0 96.0 128.0 160.0 192.0 256.0 512.0]
 #define FOG_BREATHING // langsames An- und Abschwellen des Nebels
 
 #define SHADOWS // Sonnen- und Mondschatten
@@ -251,15 +251,13 @@ void main() {
         fogC = vec3(0.45, 0.12, 0.02);
     }
 
-    // Wand-Distanz: Nebel beginnt bei ~100 Bloecken und ist bei 90% der
-    // MAXIMALEN RENDERDISTANZ (far) komplett dicht — die Chunk-Kante
-    // liegt damit immer im vollen Nebel, egal wie weit man stellt.
-    // FOG_LIMIT (Standard 512) kann die Wand optional naeher ziehen.
-    // Hinter der Wand existiert optisch nichts mehr; auch der VL-Raymarch
-    // endet dort, damit Gelaende an der Wand und Himmel exakt dieselben
-    // Streu-Terme bekommen.
-    float wallEnd = min(FOG_LIMIT, far * 0.9);
-    float wallStart = min(100.0, wallEnd * 0.6);
+    // Wand-Distanz: die klassische Nebelwand bei FOG_LIMIT (Standard 128)
+    // — der bewaehrte v1.4-Look. Sicherung: nie weiter als 85% der
+    // Renderdistanz, damit die Chunk-Kante bei kleiner Renderdistanz
+    // nicht aus der Wand schaut. Hinter der Wand existiert optisch
+    // nichts mehr; auch der VL-Raymarch endet dort, damit Gelaende an
+    // der Wand und Himmel exakt dieselben Streu-Terme bekommen.
+    float wallEnd = min(FOG_LIMIT, far * 0.85);
 
     // ============ Lichtstreifen: Raymarch durch die Schattenkarte ============
     float vis = 1.0;
@@ -340,11 +338,9 @@ void main() {
         float fogDist = dist;
         if (isEyeInWater == 0) fogDist = max(dist - FOG_START, 0.0);
         fog = 1.0 - exp(-fogDist * density);
-        // Nebelwand: freie Sicht bis ~100 Bloecke (wallStart), dann
-        // schliesst sich der Vorhang und ist bei wallEnd (90% der
-        // Renderdistanz) KOMPLETT dicht — die Chunk-Kante bleibt
-        // dauerhaft unsichtbar
-        fog = max(fog, smoothstep(wallStart, wallEnd, dist));
+        // Nebelwand: sanfte Rampe ab 20% der Wanddistanz, voll bei
+        // wallEnd — der klassische v1.4-Look
+        fog = max(fog, smoothstep(wallEnd * 0.2, wallEnd, dist));
     }
 
     // Die Transluzenten (Glas, Wasser, Portal, Partikel) sind hier noch
