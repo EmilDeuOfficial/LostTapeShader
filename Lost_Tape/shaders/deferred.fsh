@@ -251,6 +251,12 @@ void main() {
         fogC = vec3(0.45, 0.12, 0.02);
     }
 
+    // Wand-Distanz: hinter der Nebelwand existiert optisch nichts mehr.
+    // Auch der VL-Raymarch endet dort — Gelaende an der Wand und Himmel
+    // bekommen so EXAKT dieselben Streu-Terme. Selbst 1% Unterschied
+    // wuerde die Huegel-Silhouetten am Horizont nachzeichnen.
+    float wallEnd = min(FOG_LIMIT, far * 0.85);
+
     // ============ Lichtstreifen: Raymarch durch die Schattenkarte ============
     float vis = 1.0;
     float phase = 0.0;
@@ -261,7 +267,7 @@ void main() {
 #ifdef LIGHT_SHAFTS
     // Lichtstrahlen brauchen die Sonnen-Schattenkarte — nicht im Nether/End
     if (isEyeInWater != 2 && !isNether && !isEnd) {
-        float rayLen = min(dist, shadowDistance);
+        float rayLen = min(min(dist, shadowDistance), wallEnd * 0.8);
         vec3 endPos = playerPos * (rayLen / max(dist, 0.001));
         vec3 sStart = toShadowClip(vec3(0.0));
         vec3 sEnd = toShadowClip(endPos);
@@ -322,7 +328,6 @@ void main() {
         // Volle Deckung schon bei 80% der Wanddistanz: die letzten Prozent
         // der Rampe liessen sonst Gelaende-Silhouetten kurz vor der Wand
         // als Chunk-Konturen gegen den Himmel durchschimmern
-        float wallEnd = min(FOG_LIMIT, far * 0.85);
         fog = max(fog, smoothstep(wallEnd * 0.15, wallEnd * 0.8, dist));
     }
 
